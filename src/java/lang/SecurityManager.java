@@ -225,6 +225,22 @@ import sun.security.util.SecurityConstants;
  */
 public
 class SecurityManager {
+    /*
+     * 1、安全管理器是一个允许应用程序实现安全策略的类。
+     *  它允许应用程序在执行可能不安全或敏感的操作之前确定该操作是什么以及是否正在允许执行该操作的安全上下文中尝试该操作。
+     *  应用程序可以允许或禁止该操作
+     * 2、通过抛出异常来阻止操作的完成，SecurityException
+     * 3、由 System#setSecurityManager System#getSecurityManager 设置和获取
+     * 4、特殊方法SecurityManager.checkPermission(java.security.Permission)确定是否应授予或拒绝指定权限指示的访问请求
+     * 5、从 Java 2 SDK v1.2 开始，SecurityManager中其他每个check方法的默认实现是调用SecurityManager checkPermission 方法来确定调用线程有权执行请求的操作
+     * 6、
+     * 7、
+     * 8、
+     * 9、
+     * 10、
+     * 11、
+     * 12、
+     */
 
     /**
      * This field is <code>true</code> if there is a security check in
@@ -235,12 +251,12 @@ class SecurityManager {
      *  call be used instead.
      */
     @Deprecated
-    protected boolean inCheck;
+    protected boolean inCheck; // 如果正在进行安全检查，则此字段为true； false否则
 
     /*
      * Have we been initialized. Effective against finalizer attacks.
      */
-    private boolean initialized = false;
+    private boolean initialized = false; // 有没有被初始化
 
 
     /**

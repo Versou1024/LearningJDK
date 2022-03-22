@@ -109,6 +109,13 @@ public interface Future<V> {
      * always return {@code true}.  Subsequent calls to {@link #isCancelled}
      * will always return {@code true} if this method returned {@code true}.
      *
+     * <p>
+     *     试图取消此任务的执行。如果任务已完成、已取消或由于其他原因无法取消，则此尝试将失败。
+     *     1、如果成功，并且调用cancel时此任务尚未启动，则此任务不应运行。
+     *     2、如果任务已经启动，则mayInterruptIfRunning参数确定执行此任务的线程是否应该中断以尝试停止任务。
+     *      此方法返回后，对isDone的后续调用将始终返回true。如果此方法返回true，则对isCancelled的后续调用将始终返回true。
+     * </p>
+     *
      * @param mayInterruptIfRunning {@code true} if the thread executing this
      * task should be interrupted; otherwise, in-progress tasks are allowed
      * to complete
@@ -133,6 +140,10 @@ public interface Future<V> {
      * cancellation -- in all of these cases, this method will return
      * {@code true}.
      *
+     * <p>
+     *     如果此任务已完成，则返回true。完成可能是由于正常终止、异常或取消——在所有这些情况下，此方法将返回true。
+     *     <p/>
+     *
      * @return {@code true} if this task completed
      */
     boolean isDone();
@@ -140,6 +151,13 @@ public interface Future<V> {
     /**
      * Waits if necessary for the computation to complete, and then
      * retrieves its result.
+     * <p>
+     *     如有必要，阻塞直到计算完成，然后检索其结果。返回其计算结果
+     *     抛出异常的情况：
+     *     CancellationException 任务被取消
+     *     ExecutionException 任务执行中有别的异常
+     *     InterruptedException 任务被中断
+     * </p>
      *
      * @return the computed result
      * @throws CancellationException if the computation was cancelled

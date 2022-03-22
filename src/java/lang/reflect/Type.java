@@ -34,6 +34,9 @@ package java.lang.reflect;
  */
 public interface Type {
     /**
+     * 为了泛型而提出的一个接口
+     */
+    /**
      * Returns a string describing this type, including information
      * about any type parameters.
      *

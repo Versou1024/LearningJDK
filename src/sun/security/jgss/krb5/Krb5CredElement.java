@@ -1,0 +1,7 @@
+package sun.security.jgss.krb5;
+
+import sun.security.jgss.spi.GSSCredentialSpi;
+
+abstract interface Krb5CredElement extends GSSCredentialSpi
+{
+}

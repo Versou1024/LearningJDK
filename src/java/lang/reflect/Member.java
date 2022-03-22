@@ -40,6 +40,9 @@ public
 interface Member {
 
     /**
+     * 声明成员的接口，比如构造器、方法、字段
+     */
+    /**
      * Identifies the set of all public members of a class or interface,
      * including inherited members.
      */

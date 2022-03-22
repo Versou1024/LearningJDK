@@ -329,6 +329,9 @@ public interface AnnotatedElement {
           * annotation type is associated with the superclass of the
           * element.
           */
+        /**
+         * 遍历所有的class
+         */
          T[] result = getDeclaredAnnotationsByType(annotationClass);
 
          if (result.length == 0 && // Neither directly nor indirectly present

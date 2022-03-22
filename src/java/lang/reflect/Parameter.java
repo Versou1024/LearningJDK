@@ -40,6 +40,9 @@ import sun.reflect.annotation.AnnotationSupport;
  * @since 1.8
  */
 public final class Parameter implements AnnotatedElement {
+    /**
+     * 形参
+     */
 
     private final String name;
     private final int modifiers;

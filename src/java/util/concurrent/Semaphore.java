@@ -166,15 +166,28 @@ public class Semaphore implements java.io.Serializable {
     abstract static class Sync extends AbstractQueuedSynchronizer {
         private static final long serialVersionUID = 1192457210091910933L;
 
+        // 许可证初始化
         Sync(int permits) {
             setState(permits);
         }
 
+        // 获取许可证
         final int getPermits() {
             return getState();
         }
 
+        /**
+         * Semaphore 的许可证是共享模式的
+         * 非公平锁下以共享模式获取锁
+         */
         final int nonfairTryAcquireShared(int acquires) {
+            /*
+             * 1、获取当前许可证数量available；
+             * 2、available减少acquires；
+             * 3.0 剩余许可证remaining大于0，并且AQS竞争更新许可证数量成功 -- 获取许可证成功
+             * 3.1 剩余许可证remaining大于0，但AQS竞争更新许可证数量失败 -- 继续自旋获取许可证
+             * 3.2 剩余许可证remaining小于0 -- 返回负数，获取许可证失败
+             */
             for (;;) {
                 int available = getState();
                 int remaining = available - acquires;
@@ -184,7 +197,16 @@ public class Semaphore implements java.io.Serializable {
             }
         }
 
+        /**
+         * 释放共享模式的锁
+         */
         protected final boolean tryReleaseShared(int releases) {
+            /*
+             * 1、获取当前许可证数量current --
+             * 2、添加释放的许可releases，得到下次的许可证数量next
+             * 3、检查是否栈溢出
+             * 4、CAS竞争更新许可证数量直到更新成功
+             */
             for (;;) {
                 int current = getState();
                 int next = current + releases;
@@ -206,6 +228,9 @@ public class Semaphore implements java.io.Serializable {
             }
         }
 
+        /**
+         * 许可证数量清空
+         */
         final int drainPermits() {
             for (;;) {
                 int current = getState();
@@ -240,6 +265,10 @@ public class Semaphore implements java.io.Serializable {
             super(permits);
         }
 
+        /**
+         * 与 nonfairTryAcquireShared() 的区别：
+         * 1、需要先通过hasQueuedPredecessors()判断同步队列中，是否存在有效节点，返回true表示同步队列含有前继者，当前线程因为是公平锁获取因此必须让步，返回-1
+         */
         protected int tryAcquireShared(int acquires) {
             for (;;) {
                 if (hasQueuedPredecessors())
@@ -262,6 +291,7 @@ public class Semaphore implements java.io.Serializable {
      *        must occur before any acquires will be granted.
      */
     public Semaphore(int permits) {
+        // 默认是非公平锁的实现
         sync = new NonfairSync(permits);
     }
 
@@ -277,6 +307,7 @@ public class Semaphore implements java.io.Serializable {
      *        else {@code false}
      */
     public Semaphore(int permits, boolean fair) {
+        // 允许指定是公平锁还是非公平锁
         sync = fair ? new FairSync(permits) : new NonfairSync(permits);
     }
 
@@ -309,6 +340,7 @@ public class Semaphore implements java.io.Serializable {
      * @throws InterruptedException if the current thread is interrupted
      */
     public void acquire() throws InterruptedException {
+        // 获取一个许可证，支持响应中断操作
         sync.acquireSharedInterruptibly(1);
     }
 
@@ -332,6 +364,7 @@ public class Semaphore implements java.io.Serializable {
      * status will be set.
      */
     public void acquireUninterruptibly() {
+        // 获取一个许可证，永久阻塞，不支持响应中断
         sync.acquireShared(1);
     }
 
@@ -360,6 +393,7 @@ public class Semaphore implements java.io.Serializable {
      *         otherwise
      */
     public boolean tryAcquire() {
+        // 不阻塞，立即返回true或者false
         return sync.nonfairTryAcquireShared(1) >= 0;
     }
 

@@ -67,8 +67,8 @@ public class InheritableThreadLocal<T> extends ThreadLocal<T> {
      *
      * @param t the current thread
      */
-    ThreadLocalMap getMap(Thread t) {
-       return t.inheritableThreadLocals;
+    ThreadLocalMap getMap(Thread t) { // 重写getMap方法，对于子线程调用InheritableThreadLocal时，会触发返回其线程的inheritableThreadLocals
+       return t.inheritableThreadLocals; // 获取线程的inheritableThreadLocals属性
     }
 
     /**
@@ -78,6 +78,6 @@ public class InheritableThreadLocal<T> extends ThreadLocal<T> {
      * @param firstValue value for the initial entry of the table.
      */
     void createMap(Thread t, T firstValue) {
-        t.inheritableThreadLocals = new ThreadLocalMap(this, firstValue);
+        t.inheritableThreadLocals = new ThreadLocalMap(this, firstValue); // 给线程的inheritableThreadLocals创建ThreadLocalMap
     }
 }

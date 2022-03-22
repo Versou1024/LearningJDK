@@ -80,6 +80,40 @@ import sun.reflect.Reflection;
  */
 public class DriverManager {
 
+    // 围绕DriverManager与ServiceLoader讲解线程上下文类加载的机制
+    // 应用程序的代码：Class.forName("com.mysql.cj.Driver");
+    // 触发其静态代码块：
+    //     static {
+    //        try {
+    //            java.sql.DriverManager.registerDriver(new Driver()); // DriverManager的加载，系统类加载器将作为初始化加载器，由于双亲委托机制启动类加载器作为其定义加载器
+    //        } catch (SQLException E) {
+    //            throw new RuntimeException("Can't register driver!");
+    //        }
+    //    }
+    // 进而触发DriverManager类中的的静态代码块[这个时候DriverManager中的类理应由启动类加载器进行真实加载的]
+    // static {
+    //        loadInitialDrivers(); // 静态代码块初始化
+    //        println("JDBC DriverManager initialized");
+    //    }
+    // 进而触发loadInitialDrivers静态方法【注：伪代码复制核心代码】
+    // private static void loadInitialDrivers() {
+    //        String drivers = System.getProperty("jdbc.drivers");
+    //        ServiceLoader<Driver> loadedDrivers = ServiceLoader.load(Driver.class); // 由启动类加载器触发ServiceLoader的加载
+    //        Iterator<Driver> driversIterator = loadedDrivers.iterator();
+    //        while(driversIterator.hasNext()) { // 实际上间接在ServiceLoader中通过提前初始化获取的线程上下文类加载将Class对象加载到内存上
+    //            driversIterator.next(); // 延迟定位和延迟加载，这一步主要是将数据库厂商提供的jar包中的Class对象加载到内存中，否则后续的Class.forName将直接报错找不到Class对象
+    //        }
+    //        if (drivers == null || drivers.equals("")) {
+    //            return;
+    //        }
+    //        // 可以看到后续实际上，driversIterator没有被使用，因为起作用就是为了将数据库提供商的Class对象加载到内存，避免接下来的步骤报出异常
+    //        String[] driversList = drivers.split(":");
+    //        for (String aDriver : driversList) {
+    //            Class.forName(aDriver, true, ClassLoader.getSystemClassLoader());
+    //        }
+    //    }
+
+
 
     // List of registered JDBC drivers
     private final static CopyOnWriteArrayList<DriverInfo> registeredDrivers = new CopyOnWriteArrayList<>();
@@ -98,7 +132,7 @@ public class DriverManager {
      * jdbc.properties and then use the {@code ServiceLoader} mechanism
      */
     static {
-        loadInitialDrivers();
+        loadInitialDrivers(); // 静态代码块初始化
         println("JDBC DriverManager initialized");
     }
 
@@ -627,6 +661,43 @@ public class DriverManager {
         }
     }
 
+    // 应用程序调用 DriverManager#getConnection() 方法
+    // private static Connection getConnection( String url, java.util.Properties info, Class<?> caller) throws SQLException {
+    //        ClassLoader callerCL = caller != null ? caller.getClassLoader() : null;   // 注意，这一步获取了调用者的类加载器，即应用程序的系统类加载器
+    //        synchronized(DriverManager.class) {
+    //            if (callerCL == null) {
+    //                callerCL = Thread.currentThread().getContextClassLoader(); // 即使没有，也是系统类加载器
+    //            }
+    //        }
+    //        for(DriverInfo aDriver : registeredDrivers) {
+    //            if(isDriverAllowed(aDriver.driver, callerCL)) { // 这里使用到指定的callerCL类加载器
+    //                try {
+    //                    Connection con = aDriver.driver.connect(url, info); // 调用java.sql.Driver的第三方实现者的connect连接方法
+    //                    if (con != null) {
+    //                        println("getConnection returning " + aDriver.driver.getClass().getName());
+    //                        return (con);
+    //                    }
+    //                } catch (SQLException ex) {
+    //                    if (reason == null) {
+    //                        reason = ex;
+    //                    }
+    //                }
+    //        }
+    //    }
+    // 上面会触发 DriverManager#isDriverAllowed()方法
+    //     private static boolean isDriverAllowed(Driver driver, ClassLoader classLoader) {
+    //        boolean result = false;
+    //        if(driver != null) {
+    //            Class<?> aClass = null;
+    //            try {
+    //                aClass =  Class.forName(driver.getClass().getName(), true, classLoader); // 保证了Driver实现者的类加载器是系统类加载器，不会报出ClassNotFundException
+    //            } catch (Exception ex) {
+    //                result = false;
+    //            }
+    //             result = ( aClass == driver.getClass() ) ? true : false;
+    //        }
+    //        return result;
+    //    }
 
     //  Worker method called by the public getConnection() methods.
     private static Connection getConnection(

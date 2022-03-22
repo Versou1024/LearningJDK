@@ -33,6 +33,11 @@ package java.lang.reflect;
  */
 public interface WildcardType extends Type {
     /**
+     * 通配符 ?
+     * 如 Map<? extends Student & Teacher,? super Object>
+     *
+     */
+    /**
      * Returns an array of {@code Type} objects representing the  upper
      * bound(s) of this type variable.  Note that if no upper bound is
      * explicitly declared, the upper bound is {@code Object}.

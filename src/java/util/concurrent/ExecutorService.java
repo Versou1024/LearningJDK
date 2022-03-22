@@ -288,16 +288,13 @@ public interface ExecutorService extends Executor {
         throws InterruptedException;
 
     /**
-     * Executes the given tasks, returning a list of Futures holding
-     * their status and results
-     * when all complete or the timeout expires, whichever happens first.
-     * {@link Future#isDone} is {@code true} for each
-     * element of the returned list.
-     * Upon return, tasks that have not completed are cancelled.
-     * Note that a <em>completed</em> task could have
-     * terminated either normally or by throwing an exception.
-     * The results of this method are undefined if the given
-     * collection is modified while this operation is in progress.
+     * 执行给定的任务tasks，当所有任务完成或超时过期时【两种情况以先发生的为准】，才会返回一个保存其status和future的futures列表。
+     * 因此invokeAll会阻塞到直到所有任务完成，或者超时。
+     * futures对于返回列表的每个元素，isDone都为true[表示正常结束、任务被中断、任务抛出异常都有可能]。返回后，尚未完成的任务将被取消。
+     * <pre/>
+     * 请注意，
+     * 1、已完成的任务可以正常终止，也可以通过引发异常终止。
+     * 2、如果在执行此操作时修改了给定集合，则此方法的结果是未定义的。
      *
      * @param tasks the collection of tasks
      * @param timeout the maximum time to wait
@@ -320,12 +317,8 @@ public interface ExecutorService extends Executor {
         throws InterruptedException;
 
     /**
-     * Executes the given tasks, returning the result
-     * of one that has completed successfully (i.e., without throwing
-     * an exception), if any do. Upon normal or exceptional return,
-     * tasks that have not completed are cancelled.
-     * The results of this method are undefined if the given
-     * collection is modified while this operation is in progress.
+     * 执行给定的tasks，如果有已成功完成的任务，就返回第一个已成功完成的任务的结果（即不引发异常）正常或异常返回后，尚未完成的任务将被取消。
+     * 如果在执行此操作时修改了给定集合，则此方法的结果是未定义的。
      *
      * @param tasks the collection of tasks
      * @param <T> the type of the values returned from the tasks

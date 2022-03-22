@@ -44,6 +44,9 @@ import sun.reflect.ReflectionFactory;
  * @author Kenneth Russell
  */
 public class Modifier {
+    /**
+     * 修饰符
+     */
 
     /*
      * Bootstrapping protocol between java.lang and java.lang.reflect

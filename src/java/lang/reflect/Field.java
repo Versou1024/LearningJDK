@@ -61,6 +61,7 @@ import sun.reflect.annotation.TypeAnnotationParser;
  */
 public final
 class Field extends AccessibleObject implements Member {
+    // 字段
 
     private Class<?>            clazz;
     private int                 slot;

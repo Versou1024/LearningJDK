@@ -69,6 +69,15 @@ import java.io.Serializable;
  */
 public class LongAdder extends Striped64 implements Serializable {
     private static final long serialVersionUID = 7249069246863182397L;
+    /*
+     * 原理：
+     * AtomicLong 是多个线程争夺同一个long进行修改
+     * 而用LongAddr采用类似ConcurrentHashMap的cells来加数：
+     *
+     * 创建一个cell数组，每个cell中都有一个value，可以被线程修改；
+     * 分散线程的竞争力度，多个线程在争夺同一个Cell原子变量时如果失败啦，并不会在当前Cell变量上一直自旋CAS，而是尝试在其他Cell变量上进行CAS尝试
+     * 最后在获取LongAdder当前值时，把所有Cell变量的value值累加后再加上base返回的值
+     */
 
     /**
      * Creates a new adder with initial sum of zero.
@@ -83,11 +92,20 @@ public class LongAdder extends Striped64 implements Serializable {
      */
     public void add(long x) {
         Cell[] as; long b, v; int m; Cell a;
+        // 1、cells若为null，则尝试CAS更新base值
+        // 2、cell不为null，根据线程的探测值散列到cells的某个索引上，a就对应其cell
+        //      a若为null，则
+        //      a不为null，
         if ((as = cells) != null || !casBase(b = base, b + x)) {
             boolean uncontended = true;
             if (as == null || (m = as.length - 1) < 0 ||
                 (a = as[getProbe() & m]) == null ||
                 !(uncontended = a.cas(v = a.value, v + x)))
+
+                // 1、cells为null，需要初始化
+                // 2、对应的cell为null，需要初始化
+                // 3、对应的cell不为null，但cas更新其value失败，即上面的 uncontended = false
+                // 以上情况都需要进入longAccumulate()做出变化
                 longAccumulate(x, null, uncontended);
         }
     }
@@ -107,16 +125,14 @@ public class LongAdder extends Striped64 implements Serializable {
     }
 
     /**
-     * Returns the current sum.  The returned value is <em>NOT</em> an
-     * atomic snapshot; invocation in the absence of concurrent
-     * updates returns an accurate result, but concurrent updates that
-     * occur while the sum is being calculated might not be
-     * incorporated.
+     * 返回当前的总和。返回的值不是原子快照；在没有并发更新的情况下调用会返回准确的结果，但在计算总和时发生的并发更新可能不会被合并。
      *
      * @return the sum
      */
     public long sum() {
-        Cell[] as = cells; Cell a;
+        // 近视值 -- 求和，base+cells数组中的value之和
+        Cell[] as = cells;
+        Cell a;
         long sum = base;
         if (as != null) {
             for (int i = 0; i < as.length; ++i) {
@@ -135,6 +151,7 @@ public class LongAdder extends Striped64 implements Serializable {
      * known that no threads are concurrently updating.
      */
     public void reset() {
+        // 清空cells
         Cell[] as = cells; Cell a;
         base = 0L;
         if (as != null) {

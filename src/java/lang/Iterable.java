@@ -65,9 +65,13 @@ public interface Iterable<T> {
      *         action.accept(t);
      * }</pre>
      *
+     *
      * @param action The action to be performed for each element
      * @throws NullPointerException if the specified action is null
      * @since 1.8
+     * ? super T 适合做生产即向集合存入数据、向函数传递数据
+     * ？extends T 适合做消费即取出使用
+     *
      */
     default void forEach(Consumer<? super T> action) {
         Objects.requireNonNull(action);

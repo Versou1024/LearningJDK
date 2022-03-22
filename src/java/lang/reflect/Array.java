@@ -37,6 +37,9 @@ package java.lang.reflect;
  */
 public final
 class Array {
+    /**
+     * 数组
+     */
 
     /**
      * Constructor.  Class Array is not instantiable.

@@ -59,4 +59,7 @@ public interface RejectedExecutionHandler {
      * @throws RejectedExecutionException if there is no remedy
      */
     void rejectedExecution(Runnable r, ThreadPoolExecutor executor);
+    /**
+     * 抛弃策略的实现接口
+     */
 }

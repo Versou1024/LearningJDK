@@ -94,8 +94,7 @@ package java.util.concurrent;
 public interface ScheduledExecutorService extends ExecutorService {
 
     /**
-     * Creates and executes a one-shot action that becomes enabled
-     * after the given delay.
+     * 创建并执行在给定延迟后启用的一次性操作。
      *
      * @param command the task to execute
      * @param delay the time from now to delay execution
@@ -111,8 +110,7 @@ public interface ScheduledExecutorService extends ExecutorService {
                                        long delay, TimeUnit unit);
 
     /**
-     * Creates and executes a ScheduledFuture that becomes enabled after the
-     * given delay.
+     * 创建并执行一个ScheduledFuture，该Future在给定延迟后变为启用状态。
      *
      * @param callable the function to execute
      * @param delay the time from now to delay execution
@@ -127,17 +125,10 @@ public interface ScheduledExecutorService extends ExecutorService {
                                            long delay, TimeUnit unit);
 
     /**
-     * Creates and executes a periodic action that becomes enabled first
-     * after the given initial delay, and subsequently with the given
-     * period; that is executions will commence after
-     * {@code initialDelay} then {@code initialDelay+period}, then
-     * {@code initialDelay + 2 * period}, and so on.
-     * If any execution of the task
-     * encounters an exception, subsequent executions are suppressed.
-     * Otherwise, the task will only terminate via cancellation or
-     * termination of the executor.  If any execution of this task
-     * takes longer than its period, then subsequent executions
-     * may start late, but will not concurrently execute.
+     * 创建并执行一个周期性动作，该动作在给定的初始延迟后首先启用，
+     * 也就是说，执行将在initialDelay之后开始，然后是initialDelay+period，然后是initialDelay+2*period，依此类推。
+     * 如果任务执行的时间比period长的话，会导致该任务延迟执行，不会同时执行！
+     * 比如任务为100s，initialDelay为10s，period为30s，那么延迟10s后，领取任务，30s后再次领取任务，有可能任务在30s没有执行完，那么就需要延迟执行；
      *
      * @param command the task to execute
      * @param initialDelay the time to delay first execution
@@ -157,13 +148,9 @@ public interface ScheduledExecutorService extends ExecutorService {
                                                   TimeUnit unit);
 
     /**
-     * Creates and executes a periodic action that becomes enabled first
-     * after the given initial delay, and subsequently with the
-     * given delay between the termination of one execution and the
-     * commencement of the next.  If any execution of the task
-     * encounters an exception, subsequent executions are suppressed.
-     * Otherwise, the task will only terminate via cancellation or
-     * termination of the executor.
+     * 创建并执行一个周期性操作，该操作在给定的初始延迟initialDelay后首先启用，
+     * 然后在一次执行的终止和下一次执行的开始之间的给定延迟delay内启用。
+     * 如果任务的任何执行遇到异常，则会抑制后续执行。否则，任务将仅通过取消或终止执行人而终止。
      *
      * @param command the task to execute
      * @param initialDelay the time to delay first execution

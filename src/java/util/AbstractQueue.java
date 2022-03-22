@@ -92,6 +92,8 @@ public abstract class AbstractQueue<E>
      *         prevents it from being added to this queue
      */
     public boolean add(E e) {
+        // 调用 offer() 立即插入元素成功后，返回true
+        // 否则抛出异常，IllegalStateException
         if (offer(e))
             return true;
         else

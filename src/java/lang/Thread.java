@@ -179,7 +179,7 @@ class Thread implements Runnable {
 
     /* ThreadLocal values pertaining to this thread. This map is maintained
      * by the ThreadLocal class. */
-    ThreadLocal.ThreadLocalMap threadLocals = null;
+    ThreadLocal.ThreadLocalMap threadLocals = null; // 每个线程独有的属性ThreadLocalMap，实质上就是其一个entry数组，该entry数组的key为ThreadLocal，value为存入的值
 
     /*
      * InheritableThreadLocal values pertaining to this thread. This map is
@@ -403,7 +403,7 @@ class Thread implements Runnable {
         }
 
         g.addUnstarted();
-
+        //设置 线程组、是否为守护线程、设置优先级、上下文加载器、目标Runnable方法、线程id、栈大小
         this.group = g;
         this.daemon = parent.isDaemon();
         this.priority = parent.getPriority();
@@ -415,9 +415,13 @@ class Thread implements Runnable {
                 acc != null ? acc : AccessController.getContext();
         this.target = target;
         setPriority(priority);
+
+        // 1、inheritThreadLocals是否需要继承父线程的inheritThreadLocals
+        // 2、inheritThreadLocals为true，且父线程的inheritableThreadLocals也非空，就调用createInheritedMap，将父线程的复制给子线程inheritableThreadLocals
         if (inheritThreadLocals && parent.inheritableThreadLocals != null)
-            this.inheritableThreadLocals =
-                ThreadLocal.createInheritedMap(parent.inheritableThreadLocals);
+            this.inheritableThreadLocals = ThreadLocal.createInheritedMap(parent.inheritableThreadLocals);
+
+
         /* Stash the specified stack size in case the VM cares */
         this.stackSize = stackSize;
 
@@ -696,7 +700,7 @@ class Thread implements Runnable {
      * @see        #run()
      * @see        #stop()
      */
-    public synchronized void start() {
+    public synchronized void start() { //同步方法 -- synchronized 已被优化，锁升级，正常只有一个线程来启动，即为偏向锁，一般来说开销很小的
         /**
          * This method is not invoked for the main method thread or "system"
          * group threads created/set up by the VM. Any new functionality added
@@ -704,21 +708,21 @@ class Thread implements Runnable {
          *
          * A zero status value corresponds to state "NEW".
          */
-        if (threadStatus != 0)
+        if (threadStatus != 0) // 非NEW状态，使用start()方法，直接抛出非法线程状态错误 -- 因此属于termination状态的线程不能再次start
             throw new IllegalThreadStateException();
 
         /* Notify the group that this thread is about to be started
          * so that it can be added to the group's list of threads
          * and the group's unstarted count can be decremented. */
-        group.add(this);
+        group.add(this); //添加到线程组
 
         boolean started = false;
         try {
-            start0();
-            started = true;
+            start0(); //本地方法启动 -- 无异常，将执行 started = true
+            started = true; //由于Synchronized的存在，保证其有序性，嘻嘻
         } finally {
             try {
-                if (!started) {
+                if (!started) { //启动失败，从线程组中杀出
                     group.threadStartFailed(this);
                 }
             } catch (Throwable ignore) {
@@ -918,7 +922,7 @@ class Thread implements Runnable {
         synchronized (blockerLock) {
             Interruptible b = blocker;
             if (b != null) {
-                interrupt0();           // Just to set the interrupt flag
+                interrupt0();           // 设置线程的中断标志位
                 b.interrupt(this);
                 return;
             }
@@ -938,10 +942,10 @@ class Thread implements Runnable {
      * at the time of the interrupt will be reflected by this method
      * returning false.
      *
-     * @return  <code>true</code> if the current thread has been interrupted;
-     *          <code>false</code> otherwise.
-     * @see #isInterrupted()
-     * @revised 6.0
+     * <p>测试当前线程是否已中断。此方法清除线程的中断状态。
+     * 换句话说，如果这个方法被连续调用两次，第二次调用将返回false
+     * （除非当前线程在第一次调用清除其中断状态之后，第二次调用检查之前再次中断）。
+     * 该方法是static的，只能是目标线程自己，重置中断标志位
      */
     public static boolean interrupted() {
         return currentThread().isInterrupted(true);
@@ -967,7 +971,8 @@ class Thread implements Runnable {
     /**
      * Tests if some Thread has been interrupted.  The interrupted state
      * is reset or not based on the value of ClearInterrupted that is
-     * passed.
+     * passed.<br/>
+     * 测试某个线程是否被中断。中断状态是否重置取决于传递的ClearInterrupted值。
      */
     private native boolean isInterrupted(boolean ClearInterrupted);
 
@@ -1240,6 +1245,11 @@ class Thread implements Runnable {
      */
     public final synchronized void join(long millis)
     throws InterruptedException {
+        /*
+        join是同步方法，由其他线程调用并阻塞
+        使用方法：在主线程中调用 t1.join(1000L) 即表示主线程需要等待 线程t1 完成
+        所以join(long millis)方法，指的是获取对象锁后需要等待的时间，并不是join方法等待的时间
+         */
         long base = System.currentTimeMillis();
         long now = 0;
 
@@ -1249,7 +1259,7 @@ class Thread implements Runnable {
 
         if (millis == 0) {
             while (isAlive()) {
-                wait(0);
+                wait(0); // t1.join()，即t1只要一直存活，那么调用 t1.join() 的线程就必须等待
             }
         } else {
             while (isAlive()) {
@@ -1257,7 +1267,7 @@ class Thread implements Runnable {
                 if (delay <= 0) {
                     break;
                 }
-                wait(delay);
+                wait(delay); // 调用者有时间的等待
                 now = System.currentTimeMillis() - base;
             }
         }
@@ -1844,14 +1854,13 @@ class Thread implements Runnable {
     @FunctionalInterface
     public interface UncaughtExceptionHandler {
         /**
-         * Method invoked when the given thread terminates due to the
-         * given uncaught exception.
-         * <p>Any exception thrown by this method will be ignored by the
-         * Java Virtual Machine.
+         * 方法在给定线程由于给定的未捕获异常而终止时调用。
+         *
+         * Java虚拟机将忽略此方法引发的任何异常。
          * @param t the thread
          * @param e the exception
          */
-        void uncaughtException(Thread t, Throwable e);
+        void uncaughtException(Thread t, Throwable e); // 用于保存线程和对应的异常
     }
 
     // null unless explicitly set
@@ -2030,15 +2039,15 @@ class Thread implements Runnable {
 
     /** The current seed for a ThreadLocalRandom */
     @sun.misc.Contended("tlr")
-    long threadLocalRandomSeed;
+    long threadLocalRandomSeed; // 每个线程都持有自己的随机数种子
 
     /** Probe hash value; nonzero if threadLocalRandomSeed initialized */
     @sun.misc.Contended("tlr")
-    int threadLocalRandomProbe;
+    int threadLocalRandomProbe; // 每个线程都持有自己的探测值
 
     /** Secondary seed isolated from public ThreadLocalRandom sequence */
     @sun.misc.Contended("tlr")
-    int threadLocalRandomSecondarySeed;
+    int threadLocalRandomSecondarySeed; // 每个线程都持有自己的随机数种子
 
     /* Some private helper methods */
     private native void setPriority0(int newPriority);

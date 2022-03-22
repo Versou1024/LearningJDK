@@ -47,6 +47,7 @@ import sun.misc.IOUtils;
  */
 
 public class CodeSource implements java.io.Serializable {
+    // 代码源
 
     private static final long serialVersionUID = 4977541819976013951L;
 
@@ -55,12 +56,12 @@ public class CodeSource implements java.io.Serializable {
      *
      * @serial
      */
-    private URL location;
+    private URL location; // 代码位置
 
     /*
      * The code signers.
      */
-    private transient CodeSigner[] signers = null;
+    private transient CodeSigner[] signers = null; // 代码签名
 
     /*
      * The code signers. Certificate chains are concatenated.
@@ -319,6 +320,7 @@ public class CodeSource implements java.io.Serializable {
      */
     private boolean matchCerts(CodeSource that, boolean strict)
     {
+        // 比较代码源是否证书匹配
         boolean match;
 
         // match any key
@@ -328,7 +330,7 @@ public class CodeSource implements java.io.Serializable {
             } else {
                 return true;
             }
-        // both have signers
+        // 有相同的signers
         } else if (signers != null && that.signers != null) {
             if (strict && signers.length != that.signers.length) {
                 return false;
@@ -345,7 +347,7 @@ public class CodeSource implements java.io.Serializable {
             }
             return true;
 
-        // both have certs
+        // 有相同的证书
         } else if (certs != null && that.certs != null) {
             if (strict && certs.length != that.certs.length) {
                 return false;

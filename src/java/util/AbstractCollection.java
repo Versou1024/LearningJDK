@@ -87,6 +87,9 @@ public abstract class AbstractCollection<E> implements Collection<E> {
     }
 
     /**
+     *
+     */
+    /**
      * {@inheritDoc}
      *
      * <p>This implementation iterates over the elements in the collection,
@@ -97,7 +100,7 @@ public abstract class AbstractCollection<E> implements Collection<E> {
      */
     public boolean contains(Object o) {
         Iterator<E> it = iterator();
-        if (o==null) {
+        if (o==null) { //contains方法允许监测NULL
             while (it.hasNext())
                 if (it.next()==null)
                     return true;

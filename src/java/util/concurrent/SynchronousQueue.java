@@ -84,82 +84,11 @@ import java.util.Spliterators;
 public class SynchronousQueue<E> extends AbstractQueue<E>
     implements BlockingQueue<E>, java.io.Serializable {
     private static final long serialVersionUID = -3223113410248163686L;
-
-    /*
-     * This class implements extensions of the dual stack and dual
-     * queue algorithms described in "Nonblocking Concurrent Objects
-     * with Condition Synchronization", by W. N. Scherer III and
-     * M. L. Scott.  18th Annual Conf. on Distributed Computing,
-     * Oct. 2004 (see also
-     * http://www.cs.rochester.edu/u/scott/synchronization/pseudocode/duals.html).
-     * The (Lifo) stack is used for non-fair mode, and the (Fifo)
-     * queue for fair mode. The performance of the two is generally
-     * similar. Fifo usually supports higher throughput under
-     * contention but Lifo maintains higher thread locality in common
-     * applications.
-     *
-     * A dual queue (and similarly stack) is one that at any given
-     * time either holds "data" -- items provided by put operations,
-     * or "requests" -- slots representing take operations, or is
-     * empty. A call to "fulfill" (i.e., a call requesting an item
-     * from a queue holding data or vice versa) dequeues a
-     * complementary node.  The most interesting feature of these
-     * queues is that any operation can figure out which mode the
-     * queue is in, and act accordingly without needing locks.
-     *
-     * Both the queue and stack extend abstract class Transferer
-     * defining the single method transfer that does a put or a
-     * take. These are unified into a single method because in dual
-     * data structures, the put and take operations are symmetrical,
-     * so nearly all code can be combined. The resulting transfer
-     * methods are on the long side, but are easier to follow than
-     * they would be if broken up into nearly-duplicated parts.
-     *
-     * The queue and stack data structures share many conceptual
-     * similarities but very few concrete details. For simplicity,
-     * they are kept distinct so that they can later evolve
-     * separately.
-     *
-     * The algorithms here differ from the versions in the above paper
-     * in extending them for use in synchronous queues, as well as
-     * dealing with cancellation. The main differences include:
-     *
-     *  1. The original algorithms used bit-marked pointers, but
-     *     the ones here use mode bits in nodes, leading to a number
-     *     of further adaptations.
-     *  2. SynchronousQueues must block threads waiting to become
-     *     fulfilled.
-     *  3. Support for cancellation via timeout and interrupts,
-     *     including cleaning out cancelled nodes/threads
-     *     from lists to avoid garbage retention and memory depletion.
-     *
-     * Blocking is mainly accomplished using LockSupport park/unpark,
-     * except that nodes that appear to be the next ones to become
-     * fulfilled first spin a bit (on multiprocessors only). On very
-     * busy synchronous queues, spinning can dramatically improve
-     * throughput. And on less busy ones, the amount of spinning is
-     * small enough not to be noticeable.
-     *
-     * Cleaning is done in different ways in queues vs stacks.  For
-     * queues, we can almost always remove a node immediately in O(1)
-     * time (modulo retries for consistency checks) when it is
-     * cancelled. But if it may be pinned as the current tail, it must
-     * wait until some subsequent cancellation. For stacks, we need a
-     * potentially O(n) traversal to be sure that we can remove the
-     * node, but this can run concurrently with other threads
-     * accessing the stack.
-     *
-     * While garbage collection takes care of most node reclamation
-     * issues that otherwise complicate nonblocking algorithms, care
-     * is taken to "forget" references to data, other nodes, and
-     * threads that might be held on to long-term by blocked
-     * threads. In cases where setting to null would otherwise
-     * conflict with main algorithms, this is done by changing a
-     * node's link to now point to the node itself. This doesn't arise
-     * much for Stack nodes (because blocked threads do not hang on to
-     * old head pointers), but references in Queue nodes must be
-     * aggressively forgotten to avoid reachability of everything any
-     * node has ever referred to since arrival.
+    /**
+     * 类似LinkedTransferQueue的具有的特点：
+     * 1、一个线程阻塞队列要么全是take线程,要么全是put线程. 后来的互补的操作将会匹配对头的线程.使退出队列.
+     * 2、队列里面没有任何数据.调用offer()无法成功,返回flase,表示填充失败.不会被阻塞。
+     * 3、只能先take()被阻塞,直到有一个线程来offer(). 两个不同的互补碰撞发生匹配完成(fullfill). 之前的take()的线程被唤醒获得offer()的提供的数据。
      */
 
     /**
@@ -183,7 +112,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
     }
 
     /** The number of CPUs, for spin control */
-    static final int NCPUS = Runtime.getRuntime().availableProcessors();
+    static final int NCPUS = Runtime.getRuntime().availableProcessors(); // CPU 数量
 
     /**
      * The number of times to spin before blocking in timed waits.
@@ -192,7 +121,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
      * seems not to vary with number of CPUs (beyond 2) so is just
      * a constant.
      */
-    static final int maxTimedSpins = (NCPUS < 2) ? 0 : 32;
+    static final int maxTimedSpins = (NCPUS < 2) ? 0 : 32; //
 
     /**
      * The number of times to spin before blocking in untimed waits.
@@ -207,7 +136,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
      */
     static final long spinForTimeoutThreshold = 1000L;
 
-    /** Dual stack */
+    /** 双栈系统，理解 -- 因为只有两类,可以当isDate=true和isDate=false遇到时会匹配.可翻译为成双的,对偶的. 对偶队列. */
     static final class TransferStack<E> extends Transferer<E> {
         /*
          * This extends Scherer-Scott dual stack algorithm, differing,
@@ -219,11 +148,11 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
 
         /* Modes for SNodes, ORed together in node fields */
         /** Node represents an unfulfilled consumer */
-        static final int REQUEST    = 0;
+        static final int REQUEST    = 0; // 00 未完成互补的消费者
         /** Node represents an unfulfilled producer */
-        static final int DATA       = 1;
+        static final int DATA       = 1; // 01 未完成互补的生产者
         /** Node is fulfilling another unfulfilled DATA or REQUEST */
-        static final int FULFILLING = 2;
+        static final int FULFILLING = 2; // 10 一个动作和之前的complementary(译为互补)的动作得到匹配.
 
         /** Returns true if m has fulfilling bit set. */
         static boolean isFulfilling(int m) { return (m & FULFILLING) != 0; }
@@ -234,7 +163,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
             volatile SNode match;       // the node matched to this
             volatile Thread waiter;     // to control park/unpark
             Object item;                // data; or null for REQUESTs
-            int mode;
+            int mode;                   // 模式
             // Note: item and mode fields don't need to be volatile
             // since they are always written before, and read after,
             // other volatile/atomic operations.
@@ -257,6 +186,10 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
              * @return true if successfully matched to s
              */
             boolean tryMatch(SNode s) {
+                // 1、match == null，即当前node没有被取消
+                // 2、CAS更新match为和其匹配的节点s，即逻辑删除-取消
+                // 3、取消对方后，唤醒waiter
+                // 4、返回是否匹配成功
                 if (match == null &&
                     UNSAFE.compareAndSwapObject(this, matchOffset, null, s)) {
                     Thread w = waiter;
@@ -277,6 +210,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
             }
 
             boolean isCancelled() {
+                // 被逻辑删除的节点就是math值等于自身
                 return match == this;
             }
 
@@ -300,7 +234,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
         }
 
         /** The head (top) of the stack */
-        volatile SNode head;
+        volatile SNode head; // 头结点
 
         boolean casHead(SNode h, SNode nh) {
             return h == head &&
@@ -315,6 +249,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
          * to push nodes fail due to contention.
          */
         static SNode snode(SNode s, Object e, SNode next, int mode) {
+            // 更新node的值item、next指针、模式mode
             if (s == null) s = new SNode(e);
             s.mode = mode;
             s.next = next;
@@ -348,55 +283,100 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
              */
 
             SNode s = null; // constructed/reused as needed
+            // 根据e是否为null决定是生产者还是消费者
             int mode = (e == null) ? REQUEST : DATA;
 
             for (;;) {
                 SNode h = head;
+                // 1、栈顶没有元素，
+                // 2、栈顶元素跟当前元素是一个模式，也就是都是生产者节点或者都是消费者节点
+                // 满足1或者2就入栈；
                 if (h == null || h.mode == mode) {  // empty or same-mode
+                    // 如果有超时而且已到期
                     if (timed && nanos <= 0) {      // can't wait
+                        // 如果头节点不为空且是取消状态
                         if (h != null && h.isCancelled())
+                            // 就把头节点弹出，并进入下一次循环
                             casHead(h, h.next);     // pop cancelled node
                         else
+                            // 否则，直接返回null（超时返回null）
                             return null;
+                    // 创建节点snode，并CAS更新入堆栈TransferStack的栈顶
                     } else if (casHead(h, s = snode(s, e, h, mode))) {
+                        // 入栈成功（因为是模式相同的，所以只能入栈）
+                        // 调用awaitFulfill()方法自旋+阻塞当前入栈的线程并等待被匹配到
                         SNode m = awaitFulfill(s, timed, nanos);
+                        // 如果m等于s，说明取消了，那么就把它清除掉，并返回null
                         if (m == s) {               // wait was cancelled
                             clean(s);
+                            // 被取消了返回null
                             return null;
                         }
+                        // 到这里说明匹配到元素了
+                        // 因为从awaitFulfill()里面出来要不被取消了要不就匹配到了
+
+                        // 如果头节点不为空，并且头节点的下一个节点是s
+                        // 就把头节点换成s的下一个节点
+                        // 也就是把h和s都弹出了
+                        // 也就是把栈顶两个元素都弹出了
                         if ((h = head) != null && h.next == s)
                             casHead(h, s.next);     // help s's fulfiller
+                        // 根据当前节点的模式判断返回m还是s中的值
                         return (E) ((mode == REQUEST) ? m.item : s.item);
                     }
-                } else if (!isFulfilling(h.mode)) { // try to fulfill
+                // 如果两者模式不一样，且头节点没有在匹配中，就拿当前节点跟它匹配，匹配成功了就返回匹配到的元素；
+                } else if (!isFulfilling(h.mode)) { // isFulfilling()用来判断节点h是否已经被匹配
+                    // 到这里说明头节点和当前节点模式不一样
+                    // 如果头节点不是正在匹配中
+
+                    // 如果头节点已经取消了，就把它弹出栈，更新头节点
                     if (h.isCancelled())            // already cancelled
                         casHead(h, h.next);         // pop and retry
-                    else if (casHead(h, s=snode(s, e, h, FULFILLING|mode))) {
+                    // 头结点未匹配未取消，且与当前模式可匹配
+                    else if (casHead(h, s=snode(s, e, h, FULFILLING|mode))) { // 给节点s赋值更改模式为已匹配，并加入栈顶中
+                        // 头节点没有在匹配中，就让当前节点先入栈顶，然后再让他们尝试匹配
+                        // 且s成为了新的头节点，它的状态是正在匹配中
                         for (;;) { // loop until matched or waiters disappear
                             SNode m = s.next;       // m is s's match
+                            // 如果m为null，说明除了s节点外的节点都被其它线程先一步匹配掉了【多线程竞争激烈时，其余线程已将m匹配走，因此此线程持有的m已为null】
+                            // 就清空栈并跳出内部循环，到外部循环再重新入栈判断
                             if (m == null) {        // all waiters are gone
                                 casHead(s, null);   // pop fulfill node
                                 s = null;           // use new node next time
                                 break;              // restart main loop
                             }
                             SNode mn = m.next;
-                            if (m.tryMatch(s)) {
+                            // 如果m和s尝试匹配成功，且m没有被其他线程匹配走，就弹出栈顶的两个元素m和s
+                            if (m.tryMatch(s)) { // tryMatch主要是将m的match从null更新为s
                                 casHead(s, mn);     // pop both s and m
+                                // 返回匹配结果
                                 return (E) ((mode == REQUEST) ? m.item : s.item);
-                            } else                  // lost match
-                                s.casNext(m, mn);   // help unlink
+                            } else
+                                // tryMatch()尝试匹配失败，说明m已经先一步被其它线程匹配了 【多线程竞争时，其余线程都同时对m】
+                                // 就协助清除它，放弃本次匹配的机会
+                                s.casNext(m, mn);   // help unlink，协助清除，将s连接到mn上
                         }
                     }
-                } else {                            // help a fulfiller
+                // 如果两者模式不一样，且头节点正在匹配中，当前线程就协助去匹配，匹配完成了再让当前节点重新入栈重新匹配
+                } else {
+                    // 到这里说明当前节点和头节点模式不一样
+                    // 且头节点是正在匹配中
                     SNode m = h.next;               // m is h's match
                     if (m == null)                  // waiter is gone
+                        // 如果m为null说明 【 多线程情况 - 队列只有一个未匹配的节点，一个线程正在匹配节点[意味着该节点被匹配后head为null]，
+                        // 另一个线程就无法匹配到节点，且h.next为空，因此该线程在此处之协助对方，更新head为null】
                         casHead(h, null);           // pop fulfilling node
                     else {
+                        // h后面还有next的节点即mn
                         SNode mn = m.next;
+                        // 协助匹配，如果m和s尝试匹配成功，就弹出栈顶的两个元素m和s
                         if (m.tryMatch(h))          // help match
+                            // 将栈顶的两个元素弹出后，再让s重新入栈
                             casHead(h, mn);         // pop both h and m
                         else                        // lost match
-                            h.casNext(m, mn);       // help unlink
+                            // 尝试匹配失败，说明m已经先一步被其它线程匹配了
+                            // 就协助清除它
+                            h.casNext(m, mn);       // help unlink，将h连接到mn上
                     }
                 }
             }
@@ -433,29 +413,39 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
              * and don't wait at all, so are trapped in transfer
              * method rather than calling awaitFulfill.
              */
-            final long deadline = timed ? System.nanoTime() + nanos : 0L;
-            Thread w = Thread.currentThread();
+            final long deadline = timed ? System.nanoTime() + nanos : 0L; // 到期时间
+            Thread w = Thread.currentThread(); // 当前线程
             int spins = (shouldSpin(s) ?
-                         (timed ? maxTimedSpins : maxUntimedSpins) : 0);
+                         (timed ? maxTimedSpins : maxUntimedSpins) : 0); // 自旋次数
             for (;;) {
+                // 当前线程中断了，尝试清除s
                 if (w.isInterrupted())
                     s.tryCancel();
+                // 检查s是否匹配到了元素m（有可能是其它线程的m匹配到当前线程的s）
                 SNode m = s.match;
+                // 如果匹配到了，直接返回m
                 if (m != null)
                     return m;
+                // 如果需要超时
                 if (timed) {
+                    // 检查超时时间如果小于0了，尝试清除s
                     nanos = deadline - System.nanoTime();
                     if (nanos <= 0L) {
                         s.tryCancel();
                         continue;
                     }
                 }
+                // 如果还有自旋次数，自旋次数减一，并进入下一次自旋
                 if (spins > 0)
                     spins = shouldSpin(s) ? (spins-1) : 0;
+                // 后面的elseif都是自旋次数没有了
                 else if (s.waiter == null)
+                    // 如果s的waiter为null，把当前线程注入进去，并进入下一次自旋
                     s.waiter = w; // establish waiter so can park next iter
+                // 如果不允许超时，直接阻塞，并等待被其它线程唤醒，唤醒后继续自旋并查看是否匹配到了元素
                 else if (!timed)
                     LockSupport.park(this);
+                // 如果允许超时且还有剩余时间，就阻塞相应时间
                 else if (nanos > spinForTimeoutThreshold)
                     LockSupport.parkNanos(this, nanos);
             }
@@ -673,10 +663,10 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
             for (;;) {
                 QNode t = tail;
                 QNode h = head;
-                if (t == null || h == null)         // saw uninitialized value
-                    continue;                       // spin
+                if (t == null || h == null)         // 未初始化
+                    continue;                       // 自旋
 
-                if (h == t || t.isData == isData) { // empty or same-mode
+                if (h == t || t.isData == isData) { // 空队列，或者模式相同
                     QNode tn = t.next;
                     if (t != tail)                  // inconsistent read
                         continue;
@@ -684,11 +674,11 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
                         advanceTail(t, tn);
                         continue;
                     }
-                    if (timed && nanos <= 0)        // can't wait
+                    if (timed && nanos <= 0)        // 不能等待
                         return null;
                     if (s == null)
                         s = new QNode(e, isData);
-                    if (!t.casNext(null, s))        // failed to link in
+                    if (!t.casNext(null, s))        // CAS更新next失败
                         continue;
 
                     advanceTail(t, s);              // swing tail and wait
@@ -852,7 +842,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
      * Creates a {@code SynchronousQueue} with nonfair access policy.
      */
     public SynchronousQueue() {
-        this(false);
+        this(false); // 默认是非公平模式
     }
 
     /**
@@ -862,6 +852,7 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
      *        access; otherwise the order is unspecified.
      */
     public SynchronousQueue(boolean fair) {
+        // 公平模式，使用TransferQueue结构，非公平模式，使用TransferStack模式
         transferer = fair ? new TransferQueue<E>() : new TransferStack<E>();
     }
 

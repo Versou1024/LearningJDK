@@ -33,7 +33,7 @@ package java.lang.reflect;
  * @since 1.8
  */
 public interface AnnotatedWildcardType extends AnnotatedType {
-
+    // 注解修饰的通配符
     /**
      * Returns the potentially annotated lower bounds of this wildcard type.
      *

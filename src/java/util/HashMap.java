@@ -500,14 +500,17 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     final void putMapEntries(Map<? extends K, ? extends V> m, boolean evict) {
         int s = m.size();
         if (s > 0) {
-            if (table == null) { // pre-size
-                float ft = ((float)s / loadFactor) + 1.0F;
-                int t = ((ft < (float)MAXIMUM_CAPACITY) ?
+            if (table == null) { // 准备初始化
+                float ft = ((float)s / loadFactor) + 1.0F; // 根据m.size计算数组长度，s除以0.75
+                int t = ((ft < (float)MAXIMUM_CAPACITY) ? // 判断是否超过最大容量
                          (int)ft : MAXIMUM_CAPACITY);
-                if (t > threshold)
+                if (t > threshold) // 超过当前阈值
+                    //这里就是把我们指定的容量改为一个大于它的的最小的2次幂值，如传过来的容量是14，则返回16
+                    //注意这里，按理说返回的值应该赋值给 capacity，即保证数组容量总是2的n次幂，为什么这里赋值给了 threshold 呢？
+                    //先卖个关子，等到 resize 的时候再说
                     threshold = tableSizeFor(t);
-            }
-            else if (s > threshold)
+            }else if (s > threshold)
+                // 已经初始化过，但容量超过当前阈值 -- 进行扩容操作：resize
                 resize();
             for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
                 K key = e.getKey();
@@ -554,6 +557,8 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      */
     public V get(Object key) {
         Node<K,V> e;
+        //如果节点为空，则返回null，否则返回节点的value。这也说明，hashMap是支持value为null的。
+        //因此，我们就明白了，为什么hashMap支持Key和value都为null
         return (e = getNode(hash(key), key)) == null ? null : e.value;
     }
 
@@ -566,14 +571,19 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      */
     final Node<K,V> getNode(int hash, Object key) {
         Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
+        //首先要确保数组不能为空，然后取到当前hash值计算出来的下标位置的第一个元素
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (first = tab[(n - 1) & hash]) != null) {
+            //若hash值和key都相等，则说明我们要找的就是第一个元素，直接返回
             if (first.hash == hash && // always check first node
                 ((k = first.key) == key || (key != null && key.equals(k))))
                 return first;
+            //如果不是的话，就遍历当前链表（或红黑树）
             if ((e = first.next) != null) {
+                //如果是红黑树结构，则找到当前key所在的节点位置
                 if (first instanceof TreeNode)
                     return ((TreeNode<K,V>)first).getTreeNode(hash, key);
+                //如果是普通链表，则向后遍历查找，直到找到或者遍历到链表末尾为止。
                 do {
                     if (e.hash == hash &&
                         ((k = e.key) == key || (key != null && key.equals(k))))
@@ -609,6 +619,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      *         previously associated <tt>null</tt> with <tt>key</tt>.)
      */
     public V put(K key, V value) {
+        //put方法，会先调用一个hash()方法，得到当前key的一个hash值，
+        //用于确定当前key应该存放在数组的哪个下标位置
+        //这里的 hash方法，我们姑且先认为是key.hashCode()，其实不是的，一会儿细讲
         return putVal(hash(key), key, value, false, true);
     }
 
@@ -625,42 +638,70 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
                    boolean evict) {
         Node<K,V>[] tab; Node<K,V> p; int n, i;
+        //判断table是否为空，如果空的话，会先调用resize扩容
         if ((tab = table) == null || (n = tab.length) == 0)
             n = (tab = resize()).length;
+        //根据当前key的hash值找到它在数组中的下标，判断当前下标位置是否已经存在元素，
+        //若没有，则把key、value包装成Node节点，直接添加到此位置。
+        /**
+         * 假如现在有两个线程都执行到此处：
+         * 1、当线程一判断为空之后，CPU 时间片到了，被挂起。
+         * 2、线程二也执行到此处判断为空，继续执行下一句，创建了一个新节点，插入到此下标位置。
+         * 3、然后，线程一解挂，同样认为此下标的元素为空，因此也创建了一个新节点放在此下标处，因此造成了元素的覆盖。
+         */
         if ((p = tab[i = (n - 1) & hash]) == null)
             tab[i] = newNode(hash, key, value, null);
         else {
+            //如果当前位置已经有元素了，分为三种情况。
             Node<K,V> e; K k;
+            //1.当前位置元素的hash值等于传过来的hash，并且他们的key值也相等，
+            //则把p赋值给e，跳转到①处，后续需要做值的覆盖处理
             if (p.hash == hash &&
-                ((k = p.key) == key || (key != null && key.equals(k))))
+                ((k = p.key) == key || (key != null && key.equals(k)))) // 比较key的Hash值是否相同，然后比较 key是否为相同引用，否则调用equals进行判断
                 e = p;
+            //2.如果当前是红黑树结构，则把它加入到红黑树
             else if (p instanceof TreeNode)
                 e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
             else {
+                //3.说明此位置已存在元素，并且是普通链表结构，则采用尾插法，把新节点加入到链表尾部
                 for (int binCount = 0; ; ++binCount) {
+                    //如果头结点的下一个节点为空，则插入新节点
                     if ((e = p.next) == null) {
                         p.next = newNode(hash, key, value, null);
+                        //如果在插入的过程中，链表长度超过了8，则转化为红黑树
                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
                             treeifyBin(tab, hash);
+                        //插入成功之后，跳出循环，跳转到①处
                         break;
                     }
+                    //若在链表中找到了相同key的话，直接退出循环，跳转到①处
                     if (e.hash == hash &&
                         ((k = e.key) == key || (key != null && key.equals(k))))
                         break;
                     p = e;
                 }
             }
+            //① 此时e有一种情况
+            //1.说明发生了碰撞，e代表的是旧值，因此节点位置不变，但是需要替换为新值
             if (e != null) { // existing mapping for key
+                //用新值替换旧值，并返回旧值。
                 V oldValue = e.value;
+                //oldValue为空，说明e是新增的节点或者也有可能旧值本来就是空的，因为hashmap可存空值
                 if (!onlyIfAbsent || oldValue == null)
                     e.value = value;
+                // 看方法名字即可知，这是在node被访问之后需要做的操作。其实此处是一个空实现，
+                // 只有在 LinkedHashMap才会实现，用于实现根据访问先后顺序对元素进行排序，hashmap不提供排序功能
+                // Callbacks to allow LinkedHashMap post-actions
                 afterNodeAccess(e);
                 return oldValue;
             }
         }
+        //fail-fast机制
         ++modCount;
+        //如果当前数组中的元素个数超过阈值，则扩容
         if (++size > threshold)
             resize();
+        //同样的空实现
         afterNodeInsertion(evict);
         return null;
     }
@@ -675,49 +716,77 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * @return the table
      */
     final Node<K,V>[] resize() {
-        Node<K,V>[] oldTab = table;
-        int oldCap = (oldTab == null) ? 0 : oldTab.length;
-        int oldThr = threshold;
+        Node<K,V>[] oldTab = table; //旧数组
+        int oldCap = (oldTab == null) ? 0 : oldTab.length; //旧数组的容量
+        int oldThr = threshold; //旧数组的扩容阈值，注意看，这里取的是当前对象的 threshold 值，下边的第2种情况会用到。
+        //初始化新数组的容量和阈值，分三种情况讨论。
         int newCap, newThr = 0;
+        //1.当旧数组的容量大于0时，说明在这之前肯定调用过 resize 扩容过一次，才会导致旧容量不为0。
+        //为什么这样说呢，之前我在 tableSizeFor 卖了个关子，需要注意的是，它返回的值是赋给了 threshold 而不是 capacity。
+        //我们在这之前，压根就没有在任何地方看到过，它给 capacity 赋初始值。
         if (oldCap > 0) {
+            //容量达到了最大值
             if (oldCap >= MAXIMUM_CAPACITY) {
                 threshold = Integer.MAX_VALUE;
                 return oldTab;
             }
+            //新数组的容量和阈值都扩大原来的2倍
             else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
                      oldCap >= DEFAULT_INITIAL_CAPACITY)
                 newThr = oldThr << 1; // double threshold
         }
-        else if (oldThr > 0) // initial capacity was placed in threshold
+        //2.到这里，说明 oldCap <= 0，并且 oldThr(threshold) > 0，这就是  HashMap(Map<? extends K, ? extends V> m) 初始化的时候，第一次调用 resize 的情况
+        //而 oldThr的值等于 threshold，此时的 threshold 是通过 tableSizeFor 方法得到的一个2的n次幂的值(我们以16为例)。
+        //因此，需要把 oldThr 的值，也就是 threshold ，赋值给新数组的容量 newCap，以保证数组的容量是2的n次幂。
+        //所以我们可以得出结论，当map第一次 put 元素的时候，就会走到这个分支，把数组的容量设置为正确的值（2的n次幂)
+        //但是，此时 threshold 的值也是2的n次幂，这不对啊，它应该是数组的容量乘以加载因子才对。别着急，这个会在③处理。
+        else if (oldThr > 0)
             newCap = oldThr;
-        else {               // zero initial threshold signifies using defaults
+        //3.到这里，说明 oldCap 和 oldThr 都是小于等于0的。也说明我们的map是通过默认无参构造来创建的，
+        // 于是，数组的容量和阈值都取默认值就可以了，即 16 和 12。
+        else {
             newCap = DEFAULT_INITIAL_CAPACITY;
             newThr = (int)(DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
         }
+        //③ 这里就是处理第2种情况，因为只有这种情况 newThr 才为0，
+        //因此计算 newThr（用 newCap即16 乘以加载因子 0.75，得到 12） ，并把它赋值给 threshold
         if (newThr == 0) {
             float ft = (float)newCap * loadFactor;
             newThr = (newCap < MAXIMUM_CAPACITY && ft < (float)MAXIMUM_CAPACITY ?
                       (int)ft : Integer.MAX_VALUE);
         }
+        //赋予 threshold 正确的值，表示数组下次需要扩容的阈值（此时就把原来的 16 修正为了 12）。
         threshold = newThr;
         @SuppressWarnings({"rawtypes","unchecked"})
         Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
         table = newTab;
+        //如果原来的数组不为空，那么我们就需要把原来数组中的元素重新分配到新的数组中
+        //如果是第2种情况，由于是第一次调用resize，此时数组肯定是空的，因此也就不需要重新分配元素。
         if (oldTab != null) {
+            //遍历旧数组
             for (int j = 0; j < oldCap; ++j) {
                 Node<K,V> e;
+                //取到当前下标的第一个元素，如果存在，则分三种情况重新分配位置
                 if ((e = oldTab[j]) != null) {
                     oldTab[j] = null;
+                    //1.如果当前元素的下一个元素为空，则说明此处只有一个元素
+                    //则直接用它的hash()值和新数组的容量取模就可以了，得到新的下标位置。
                     if (e.next == null)
                         newTab[e.hash & (newCap - 1)] = e;
+                    //2.如果是红黑树结构，则拆分红黑树，必要时有可能退化为链表
                     else if (e instanceof TreeNode)
                         ((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
+                    //3.到这里说明，这是一个长度大于 1 的普通链表，则需要计算并
+                    // 判断当前位置的链表是否需要移动到新的位置
                     else { // preserve order
+                        // loHead 和 loTail 分别代表链表旧位置的头尾节点
                         Node<K,V> loHead = null, loTail = null;
+                        // hiHead 和 hiTail 分别代表链表移动到新位置的头尾节点
                         Node<K,V> hiHead = null, hiTail = null;
                         Node<K,V> next;
                         do {
                             next = e.next;
+                            //如果当前元素的hash值和oldCap做与运算为0，则原位置不变
                             if ((e.hash & oldCap) == 0) {
                                 if (loTail == null)
                                     loHead = e;
@@ -725,6 +794,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                                     loTail.next = e;
                                 loTail = e;
                             }
+                            //否则，需要移动到新的位置
                             else {
                                 if (hiTail == null)
                                     hiHead = e;
@@ -733,10 +803,12 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                                 hiTail = e;
                             }
                         } while ((e = next) != null);
+                        //原位置不变的一条链表，数组下标不变
                         if (loTail != null) {
                             loTail.next = null;
                             newTab[j] = loHead;
                         }
+                        //移动到新位置的一条链表，数组下标为原下标加上旧数组的容量
                         if (hiTail != null) {
                             hiTail.next = null;
                             newTab[j + oldCap] = hiHead;

@@ -211,8 +211,7 @@ import sun.util.logging.PlatformLogger;
  * @see <a href="../../../platform/serialization/spec/input.html"> Object Serialization Specification, Section 3, Object Input Classes</a>
  * @since   JDK1.1
  */
-public class ObjectInputStream
-    extends InputStream implements ObjectInput, ObjectStreamConstants
+public class ObjectInputStream extends InputStream implements ObjectInput, ObjectStreamConstants
 {
     /** handle value representing null */
     private static final int NULL_HANDLE = -1;
@@ -418,9 +417,10 @@ public class ObjectInputStream
      *          stream instead of objects.
      * @throws  IOException Any of the usual Input/Output related exceptions.
      */
-    public final Object readObject()
-        throws IOException, ClassNotFoundException
-    {
+    public final Object readObject() throws IOException, ClassNotFoundException {
+        /*
+         * 从输入流ObjectInputStream中获取读取处对象：
+         */
         if (enableOverride) {
             return readObjectOverride();
         }
@@ -428,6 +428,7 @@ public class ObjectInputStream
         // if nested read, passHandle contains handle of enclosing object
         int outerHandle = passHandle;
         try {
+            // 看这里,看这里,就是我readObject0
             Object obj = readObject0(false);
             handles.markDependency(outerHandle, passHandle);
             ClassNotFoundException ex = handles.lookupException(passHandle);
@@ -1570,6 +1571,7 @@ public class ObjectInputStream
                     return checkResolve(readEnum(unshared));
 
                 case TC_OBJECT:
+
                     return checkResolve(readOrdinaryObject(unshared));
 
                 case TC_EXCEPTION:

@@ -89,8 +89,9 @@ public class LongAccumulator extends Striped64 implements Serializable {
      * @param accumulatorFunction a side-effect-free function of two arguments
      * @param identity identity (initial value) for the accumulator function
      */
-    public LongAccumulator(LongBinaryOperator accumulatorFunction,
-                           long identity) {
+    public LongAccumulator(LongBinaryOperator accumulatorFunction, long identity) {
+        // 和LongAdder的唯一区别
+        // 定义计算方式，定义base的初始值
         this.function = accumulatorFunction;
         base = this.identity = identity;
     }

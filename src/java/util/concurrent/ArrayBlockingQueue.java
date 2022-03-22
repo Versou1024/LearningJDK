@@ -91,16 +91,16 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     private static final long serialVersionUID = -817911632652898426L;
 
     /** The queued items */
-    final Object[] items;
+    final Object[] items; // 使用数组存放
 
     /** items index for next take, poll, peek or remove */
-    int takeIndex;
+    int takeIndex; // 下一次 take、poll、peek、remove的index位置
 
     /** items index for next put, offer, or add */
-    int putIndex;
+    int putIndex; // 下一次put offer add的index位置
 
     /** Number of elements in the queue */
-    int count;
+    int count; // 队列中的元素数
 
     /*
      * Concurrency control uses the classic two-condition algorithm
@@ -108,20 +108,20 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      */
 
     /** Main lock guarding all access */
-    final ReentrantLock lock;
+    final ReentrantLock lock; // 整个类的锁
 
     /** Condition for waiting takes */
-    private final Condition notEmpty;
+    private final Condition notEmpty; // 条件对象为等待直到队列非空
 
     /** Condition for waiting puts */
-    private final Condition notFull;
+    private final Condition notFull; // 条件对象为等待直到队列非满
 
     /**
      * Shared state for currently active iterators, or null if there
      * are known not to be any.  Allows queue operations to update
      * iterator state.
      */
-    transient Itrs itrs = null;
+    transient Itrs itrs = null; // 当前活动迭代器的共享状态，如果已知没有，则为null。允许队列操作更新迭代器状态。
 
     // Internal helper methods
 
@@ -159,10 +159,11 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         // assert items[putIndex] == null;
         final Object[] items = this.items;
         items[putIndex] = x;
+        // 注意：putIndex等于容量，那么putIndex=0，表示下次put、offer、add根据putIndex入队列即可，
         if (++putIndex == items.length)
             putIndex = 0;
         count++;
-        notEmpty.signal();
+        notEmpty.signal(); // 重点：调用enqueue()，唤醒某个消费者
     }
 
     /**
@@ -174,14 +175,16 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         // assert items[takeIndex] != null;
         final Object[] items = this.items;
         @SuppressWarnings("unchecked")
-        E x = (E) items[takeIndex];
+        E x = (E) items[takeIndex]; //takeIndex为队列头部元素
+        // NOTE：这就是为什么不支持null值的原因？
+        // 采用逻辑删除+延迟删除操作：不会立即删除元素，而是将元素值为null，等待某个方法发现为null值后，将其删除
         items[takeIndex] = null;
-        if (++takeIndex == items.length)
+        if (++takeIndex == items.length) // 整个队列的是一个循环队列，其中从takeIndex是队列头，putIndex是队列尾，中间就是有效的元素存储
             takeIndex = 0;
         count--;
         if (itrs != null)
             itrs.elementDequeued();
-        notFull.signal();
+        notFull.signal(); // 有元素出队列，唤醒某个生产者
         return x;
     }
 
@@ -195,19 +198,23 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         // assert items[removeIndex] != null;
         // assert removeIndex >= 0 && removeIndex < items.length;
         final Object[] items = this.items;
+        // 情况1：lastRet==takeIndex
         if (removeIndex == takeIndex) {
             // removing front item; just advance
             items[takeIndex] = null;
             if (++takeIndex == items.length)
                 takeIndex = 0;
             count--;
+            // // 如果迭代器链存在迭代器会进一步处理各个迭代器的遍历状态
             if (itrs != null)
                 itrs.elementDequeued();
         } else {
+            // // 情况2：lastRet在takeIndex之后
             // an "interior" remove
 
             // slide over all others up through putIndex.
             final int putIndex = this.putIndex;
+            // // 从lastRet位开始,前一位覆盖后一位
             for (int i = removeIndex;;) {
                 int next = i + 1;
                 if (next == items.length)
@@ -324,12 +331,15 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     public boolean offer(E e) {
         checkNotNull(e);
         final ReentrantLock lock = this.lock;
-        lock.lock();
+        lock.lock(); // 加锁，直到成功
         try {
+            // 同步代码 - 使得加入元素是线程安全的；
+            // 只要当前元素数量 不等于 容量，就允许入队列，返回true
+            // 否则返回false
             if (count == items.length)
                 return false;
             else {
-                enqueue(e);
+                enqueue(e); // 线程安全的
                 return true;
             }
         } finally {
@@ -349,9 +359,10 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
         try {
+            // 阻塞队列满，就进入等待 -- while用来避免虚假唤醒
             while (count == items.length)
                 notFull.await();
-            enqueue(e);
+            enqueue(e); // 线程安全的
         } finally {
             lock.unlock();
         }
@@ -375,10 +386,10 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         try {
             while (count == items.length) {
                 if (nanos <= 0)
-                    return false;
-                nanos = notFull.awaitNanos(nanos);
+                    return false; // 若超时，返回false
+                nanos = notFull.awaitNanos(nanos); //超时等待
             }
-            enqueue(e);
+            enqueue(e); // 线程安全的
             return true;
         } finally {
             lock.unlock();
@@ -389,6 +400,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            // 队列为空，立即返回null，否则取出元素
             return (count == 0) ? null : dequeue();
         } finally {
             lock.unlock();
@@ -399,6 +411,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
         try {
+            // 队列为空，阻塞直到可用被唤醒
             while (count == 0)
                 notEmpty.await();
             return dequeue();
@@ -412,6 +425,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
         try {
+            // 队列为空，超时等待
             while (count == 0) {
                 if (nanos <= 0)
                     return null;
@@ -427,6 +441,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            // peek 查看队头元素
             return itemAt(takeIndex); // null when queue is empty
         } finally {
             lock.unlock();
@@ -444,6 +459,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            // 这里需要注意：count没有被声明为volatile的
+            // 因此需哟啊通过加锁，来保证获取锁后访问的共享变量都是从主内存中获取的，这保证了变量的内存可见性
             return count;
         } finally {
             lock.unlock();
@@ -831,15 +848,22 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
             }
         }
 
-        /** Incremented whenever takeIndex wraps around to 0 */
+        /** Incremented whenever takeIndex wraps around to 0
+         * <p> 该属性非常重要，它记录takeIndex索引重新回到0号索引位的次数
+         *    由此来描述takeIndex索引位的“圈数”</p>
+         */
         int cycles = 0;
 
         /** Linked list of weak iterator references */
-        private Node head;
+        private Node head; // 迭代器弱引用的链表头
 
-        /** Used to expunge stale iterators */
-        private Node sweeper = null;
+        /**
+         * Used to expunge stale iterators
+         *  <p>Itrs迭代器组在特定的场景下会进行Node单向链表的清理，该属性表示上次一清理到的Node节点
+         */
+        private Node sweeper = null; // 记录上次探测的结束位置节点，下次从此开始往后探测。
 
+        // 探测范围
         private static final int SHORT_SWEEP_PROBES = 4;
         private static final int LONG_SWEEP_PROBES = 16;
 
@@ -856,12 +880,24 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
          * there is known to be at least one iterator to collect
          */
         void doSomeSweeping(boolean tryHarder) {
-            // assert lock.getHoldCount() == 1;
-            // assert head != null;
+            // 清除迭代器链中无效的迭代器结点：
+            // 1、结点持有的Itr对象为空，说明被GC回收，说明使用线程完成迭代
+            // 2、迭代器Itr为 DETACHED 模式，对于迭代结束或数据过时的迭代器会被置于 DETACHED 模式
+
+            // tryHarder 为true则 probes 为 16，否则为 4
+            // probes 代表本次的探测长度
             int probes = tryHarder ? LONG_SWEEP_PROBES : SHORT_SWEEP_PROBES;
+            //  o 代表 p 的前一个节点，用于链表中节点的删除
             Node o, p;
             final Node sweeper = this.sweeper;
-            boolean passedGo;   // to limit search to one full sweep
+            /**
+             * passedGo：限制一次遍历
+             * 	若从头开始遍历,passedGo设为true,
+             * 		如果当前结点为null且probes>0可以直接break
+             * 	若从中开始遍历,passedGo设为false,
+             * 		如果当前结点为null且probes>0就会转回到头部继续遍历
+             */
+            boolean passedGo;   // 将搜索限制为一次完整扫描
 
             if (sweeper == null) {
                 o = null;
@@ -872,23 +908,37 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
                 p = o.next;
                 passedGo = false;
             }
-
+            // 如果遇到结点为空说明遍历到了链表尾
+            // 就需要根据passedGo判断是否继续探测
             for (; probes > 0; probes--) {
+                // (1) // passedGo 为true,从链表头开始探测,那就不需要继续探测,直接break
                 if (p == null) {
                     if (passedGo)
                         break;
+                    // passedGo 为false，说明本次遍历是从中间某位置开始，
+                    // 也就是说链表前面有一段是未遍历的，
+                    // 遍历到了尾部需要转回到头部继续遍历
                     o = null;
                     p = head;
                     passedGo = true;
                 }
                 final Itr it = p.get();
                 final Node next = p.next;
+                //	(2) 删除此节点
+                // 1.节点持有的迭代器对象为null
+                // 2.数组为空或数据过时导致的DETACHED模式
                 if (it == null || it.isDetached()) {
-                    // found a discarded/exhausted iterator
+                    /**
+                     * ①当发现了一个被抛弃或过时的迭代器，
+                     * 则将探测范围probes变为16，相当于延长探测范围。
+                     * 这样做的目的:
+                     * 		1.减少该方法持有锁的时间(在当前探测范围没有失效结点就退出)
+                     * 		2.保证清理迭代器的高效(当发现存在失效迭代器,就扩大范围)
+                     */
                     probes = LONG_SWEEP_PROBES; // "try harder"
-                    // unlink p
-                    p.clear();
-                    p.next = null;
+                    p.clear(); // 清空引用
+                    p.next = null; // 清空next
+                    // ② 从链表头开始探测,在上面初始化时(o=null)或从链表尾转到链表头探测
                     if (o == null) {
                         head = next;
                         if (next == null) {
@@ -904,7 +954,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
                 }
                 p = next;
             }
-
+            // 记录本次遍历结束位置节点
             this.sweeper = (p == null) ? null : o;
         }
 
@@ -912,7 +962,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
          * Adds a new iterator to the linked list of tracked iterators.
          */
         void register(Itr itr) {
-            // assert lock.getHoldCount() == 1;
+            // 迭代器想itrs中注册，就是将其头插入头itrs的若引用链表中
             head = new Node(itr, head);
         }
 
@@ -922,11 +972,14 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
          * Notifies all iterators, and expunges any that are now stale.
          */
         void takeIndexWrapped() {
-            // assert lock.getHoldCount() == 1;
+            // 清除迭代器链失效迭代器以及新的一轮循环而导致失效的迭代
+            // 轮数+1
             cycles++;
+            // 遍历所有迭代器
             for (Node o = null, p = head; p != null;) {
                 final Itr it = p.get();
                 final Node next = p.next;
+                // 迭代器失效 it.takeIndexWrapped() 判断当前迭代器是否失效
                 if (it == null || it.takeIndexWrapped()) {
                     // unlink p
                     // assert it == null || it.isDetached();
@@ -941,6 +994,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
                 }
                 p = next;
             }
+            // 所有迭代器都失效,itrs置为null
             if (head == null)   // no more iterators to track
                 itrs = null;
         }
@@ -979,11 +1033,11 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
          * clears all weak refs, and unlinks the itrs datastructure.
          */
         void queueIsEmpty() {
-            // assert lock.getHoldCount() == 1;
+            // 遍历迭代器集合，将每个迭代器清除被关闭
             for (Node p = head; p != null; p = p.next) {
                 Itr it = p.get();
                 if (it != null) {
-                    p.clear();
+                    p.clear(); // 清除node中的弱引用
                     it.shutdown();
                 }
             }
@@ -995,10 +1049,16 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
          * Called whenever an element has been dequeued (at takeIndex).
          */
         void elementDequeued() {
-            // assert lock.getHoldCount() == 1;
+            // ① 每次删除元素，都会从 dequeue() 或者 removeAt() 中被调用
+
+            // 1.阻塞队列元素已经被消耗为空,迭代器链中所有迭代器失效。
             if (count == 0)
+                // 清除所有迭代器
                 queueIsEmpty();
+            // 2.下一次takeIndex == 0表示新的一轮循环消费,可能导致takeIndex覆盖
+            // 迭代器中记录的变量值,从而导致迭代器失效
             else if (takeIndex == 0)
+                // 清除迭代器链失效迭代器以及新的一轮循环而导致失效的迭代器
                 takeIndexWrapped();
         }
     }
@@ -1023,65 +1083,77 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      */
     private class Itr implements Iterator<E> {
         /** Index to look for new nextItem; NONE at end */
-        private int cursor;
+        private int cursor; // 光标
 
         /** Element to be returned by next call to next(); null if none */
-        private E nextItem;
+        private E nextItem; // 下一个值：专门为支持hashNext方法和next方法配合所使用的属性，用于在调用next方法返回数据
 
         /** Index of nextItem; NONE if none, REMOVED if removed elsewhere */
-        private int nextIndex;
+        private int nextIndex; // 下一个索引
 
         /** Last element returned; null if none or not detached. */
-        private E lastItem;
+        private E lastItem; // 上一个值：最后一次（上一次）迭代器遍历操作时返回的元素
 
         /** Index of lastItem, NONE if none, REMOVED if removed elsewhere */
-        private int lastRet;
+        private int lastRet; // 上一个索引
 
-        /** Previous value of takeIndex, or DETACHED when detached */
-        private int prevTakeIndex;
+        /**
+         * Previous value of takeIndex, or DETACHED when detached
+         * <p> 该变量表示本迭代器最后一次（上一次）从ArrayBlockingQueue队列中获取到的takeIndex索引位
+         *   该属性还有一个重要的作用，用来表示当前迭代器是否是“独立”工作模式（或者迭代器是否失效）
+         */
+        private int prevTakeIndex; // 代表本次遍历开始的索引，每此 next 都会进行修正
 
-        /** Previous value of iters.cycles */
-        private int prevCycles;
+        /**
+         * Previous value of iters.cycles
+         * <p> 最后一次（上一次）从ArrayBlockingQueue队列获取的takeIndex索引位回到0号索引位的次数
+         * 这个值非常重要，是判定迭代器是否有效的重要依据
+         */
+        private int prevCycles; // Itrs 管理 Itr 链，它里面有个变量 cycles 记录 takeIndex 回到 0 位置的次数，迭代器的 prevCycles 存储该值
 
         /** Special index value indicating "not available" or "undefined" */
-        private static final int NONE = -1;
+        private static final int NONE = -1; // 用于三个下标变量：cursor，nextIndex，lastRet；这三个下标变量用于迭代功能的实现。表明该位置数据不可用或未定义
 
         /**
          * Special index value indicating "removed elsewhere", that is,
          * removed by some operation other than a call to this.remove().
          */
-        private static final int REMOVED = -2;
+        private static final int REMOVED = -2; // 用于lastRet 与 nextIndex。表明数据过时或被删除
 
         /** Special value for prevTakeIndex indicating "detached mode" */
-        private static final int DETACHED = -3;
+        private static final int DETACHED = -3; //专门用于prevTakeIndex ，isDetached方法通过其来判断迭代器状态是否失效
 
         Itr() {
             // assert lock.getHoldCount() == 0;
             lastRet = NONE;
             final ReentrantLock lock = ArrayBlockingQueue.this.lock;
+            // 在创建迭代器过程加锁，防止队列改变导致初始化错误
             lock.lock();
             try {
                 if (count == 0) {
                     // assert itrs == null;
                     cursor = NONE;
                     nextIndex = NONE;
-                    prevTakeIndex = DETACHED;
+                    prevTakeIndex = DETACHED; // 迭代器为DETACHED模式 - 失效状态
                 } else {
                     final int takeIndex = ArrayBlockingQueue.this.takeIndex;
+                    // 初始化遍历起始索引prevTakeIndex为队头索引takeIndex
                     prevTakeIndex = takeIndex;
+                    // 下一个遍历元素nextItem为队头元素itemAt(takeIndex)
+                    // nextIndex为nextItem的索引
                     nextItem = itemAt(nextIndex = takeIndex);
+                    // 获取nextIndex下一个元素的索引
                     cursor = incCursor(takeIndex);
+                    // 如果itrs为null,就初始化;
                     if (itrs == null) {
                         itrs = new Itrs(this);
+                    // 否则将当前迭代器注册到itrs中,并清理失效迭代器
                     } else {
                         itrs.register(this); // in this order
                         itrs.doSomeSweeping(false);
                     }
+                    // 当前迭代器记录最新的轮数
                     prevCycles = itrs.cycles;
-                    // assert takeIndex >= 0;
-                    // assert prevTakeIndex == takeIndex;
-                    // assert nextIndex >= 0;
-                    // assert nextItem != null;
                 }
             } finally {
                 lock.unlock();
@@ -1090,13 +1162,18 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
 
         boolean isDetached() {
             // assert lock.getHoldCount() == 1;
+            // 只要可以消费的index小于0，就表示该迭代器已经结束
             return prevTakeIndex < 0;
         }
 
         private int incCursor(int index) {
             // assert lock.getHoldCount() == 1;
+            // index 等于队列容量，循环到index=0
+            // index 等于putIndex，表示当前位置无元素，返回NONE
             if (++index == items.length)
                 index = 0;
+            // 当遍历到 putIndex ，代表数据遍历结束，应该终止迭代，
+            // 将 cursor 置为 NONE 标识，cursor 置为 NONE 后会引起迭代器的终止，逻辑在 next 与 hasNext 方法中。
             if (index == putIndex)
                 index = NONE;
             return index;
@@ -1108,37 +1185,60 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
          */
         private boolean invalidated(int index, int prevTakeIndex,
                                     long dequeues, int length) {
+            /*
+             * 下标变量小于0返回false，表明该下标变量的值不需要进行更改
+             * 有三个状态 NONE ，REMOVED，DETACHED 它们皆小于0。
+             * 	DETACHED：专门用于preTakeIndex使用，isDetached方法通过其来判断，迭代器是否过期
+             * 	NONE：用于cursor，nextIndex，lastRet；这三个索引值用于迭代功能的实现
+             * 	NONE：表明迭代结束可能因为数组为空或是遍历完
+             * 	REMOVED：表示lastRet 与 nextIndex 的数据过时
+             */
+
+            // 如果需要判定的索引位本来就已经失效了（NONE、REMOVED、DETACHED这些常量都为负数）
             if (index < 0)
                 return false;
+            // 计算index索引位置和prevTakeIndex索引位置的距离
+            // 最简单的就是当前index的索引位减去prevTakeIndex的索引位值
             int distance = index - prevTakeIndex;
+            // 如果以上计算出来是一个负值，说明index的索引位已经“绕场一周”
+            // 这时在distance的基础上面，增加一个队列长度值，
             if (distance < 0)
                 distance += length;
+            // dequeues 已经出队的元素数量，如果distance小于dequeues，说明还在出队元素的范围中，那么就是失效的，返回true表时需要更新这个index
             return dequeues > distance;
         }
 
-        /**
-         * Adjusts indices to incorporate all dequeues since the last
-         * operation on this iterator.  Call only from iterating thread.
-         */
+        // 该方法在用于在Itr迭代器多次操作的间歇间，ArrayBlockingQueue队列状态发生变化的情况下
+        // 对Itr的重要索引位置进行修正（甚至是让Itr在极端情况下无效
         private void incorporateDequeues() {
-            // assert lock.getHoldCount() == 1;
-            // assert itrs != null;
-            // assert !isDetached();
-            // assert count > 0;
+            // 由于多线程下为了确保安全迭代线程每次调用next都要先获取独占锁，得不到便需等待，
+            // 等到被唤醒继续执行就需要对数组此时的状况进行判断，判断当前迭代器要获取的数据是否已经过时，
+            // 将最新的 takeIndex 赋给迭代器的 cursor，从而确保迭代器不会返回过时的数据。
+            /*
+             * 请注意：incorporateDequeues()方法的目标是在Itr迭代器两次操作间隙ArrayBlockingQueue队列发生读写操作的情况下，
+             * 尽可能修正Itr迭代器的索引位值，使它能从下一个正确的索引位置重新开始遍历数据，
+             * 而不是“尽可能让Itr迭代器作废”。这从incorporateDequeues()方法中确认Itr迭代器过期
+             * 所使用的相对苛刻的判定条件就可以看出来 “cursor < 0 && nextIndex < 0 && lastRet < 0”
+             */
 
-            final int cycles = itrs.cycles;
+            final int cycles = itrs.cycles; // 生命周期
             final int takeIndex = ArrayBlockingQueue.this.takeIndex;
             final int prevCycles = this.prevCycles;
             final int prevTakeIndex = this.prevTakeIndex;
 
+            // 如果迭代器记录的轮数与最新的轮数不同
+            // 或者迭代器记录的当前遍历元素的索引与最新的队列头的索引不同
+            // 需要修改迭代器
             if (cycles != prevCycles || takeIndex != prevTakeIndex) {
                 final int len = items.length;
-                // how far takeIndex has advanced since the previous
-                // operation of this iterator
+                // 这句计算非常重要，就是计算在所有读取操作后，两次takeIndex索引产生的索引距离（已出队的数据量）
                 long dequeues = (cycles - prevCycles) * len
                     + (takeIndex - prevTakeIndex);
 
-                // Check indices for invalidation
+
+                // 检查三个下标变量 -- lastRet，nextIndex，cursor
+                // 查看它们指向的数据是否已过时，所谓过时指的是此时 takeIndex 已在其前
+                // 若过时就将lastRet与nextIndex置为REMOVED，cursor置为此时的takeIndex
                 if (invalidated(lastRet, prevTakeIndex, dequeues, len))
                     lastRet = REMOVED;
                 if (invalidated(nextIndex, prevTakeIndex, dequeues, len))
@@ -1146,8 +1246,11 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
                 if (invalidated(cursor, prevTakeIndex, dequeues, len))
                     cursor = takeIndex;
 
+                // 如果cursor索引、nextIndex索引、lastRet索引，则表示当前Itr游标失效
+                // 调用detach()方法将当前Itr迭代器标记为失效，并清理Itrs迭代器组中的Node信息
                 if (cursor < 0 && nextIndex < 0 && lastRet < 0)
                     detach();
+                //  否则（大部分情况）修正Itr迭代器中的状态，以便其能从修正的位置开始进行遍历
                 else {
                     this.prevCycles = cycles;
                     this.prevTakeIndex = takeIndex;
@@ -1155,13 +1258,13 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
             }
         }
 
-        /**
-         * Called when itrs should stop tracking this iterator, either
-         * because there are no more indices to update (cursor < 0 &&
-         * nextIndex < 0 && lastRet < 0) or as a special exception, when
-         * lastRet >= 0, because hasNext() is about to return false for the
-         * first time.  Call only from iterating thread.
-         */
+        // 该方法负责将当前Itr迭代器置为“独立/失效”工作状态，既将prevTakeIndex设置为DETACHED
+        // 这个动作可能发生在以下多种场景下：
+        // 1、当Itrs迭代器组要停止对某个Itr迭代器进行状态跟踪时。
+        // 2、当迭代器中已经没有更多的索引位可以遍历时。
+        // 3、当迭代器发生了一些处理异常时，
+        // 4、当incorporateDequeues()方法中判定三个关键索引位全部失效时（cursor < 0 && nextIndex < 0 && lastRet < 0）
+        // 5、.....
         private void detach() {
             // Switch to detached mode
             // assert lock.getHoldCount() == 1;
@@ -1170,9 +1273,9 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
             // assert lastRet < 0 || nextItem == null;
             // assert lastRet < 0 ^ lastItem != null;
             if (prevTakeIndex >= 0) {
-                // assert itrs != null;
+                // 设定一个Itr迭代器失效，就是设定prevTakeIndex属性为DETACHED常量
                 prevTakeIndex = DETACHED;
-                // try to unlink from itrs (but not too hard)
+                // 一旦该迭代器被标识为“独立”（无效）工作模式，则试图清理该迭代器对象在Itrs迭代器组中的监控信息
                 itrs.doSomeSweeping(true);
             }
         }
@@ -1184,30 +1287,48 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
          * triggered by queue modifications.
          */
         public boolean hasNext() {
-            // assert lock.getHoldCount() == 0;
+            // 如果存在下一个元素
             if (nextItem != null)
                 return true;
+            // 能进入noNext方法,说明不存在下一个元素
+            // 即 cursor == NONE 且 nextIndex == NONE
             noNext();
             return false;
         }
 
         private void noNext() {
+            /*
+             * hasNext()失败后的处理，既没有下一个元素存在
+             * 即能够进入该方法说明数组元素已经全部遍历完，
+             * 即cursor == putIndex且cursor = NONE ，nextIndex = NONE ， nextItem = null，这些状态会在上一次调用next方法时被设置。
+             * noNext()作用：将迭代器的状态置为 DETACHED，这样才能被doSomeSweeping方法清除。
+             */
             final ReentrantLock lock = ArrayBlockingQueue.this.lock;
-            lock.lock();
+            lock.lock(); // 锁住迭代器
             try {
-                // assert cursor == NONE;
-                // assert nextIndex == NONE;
+                /**
+                 * 判断该迭代器是否已经在上一次调用next方法时被变为失效
+                 *  如果已经失效,那么就不需要进入代码块
+                 */
                 if (!isDetached()) {
-                    // assert lastRet >= 0;
+                    /**
+                     * 那么有的读者会有这个疑问，为什么当迭代器没有任何数据可以遍历的时候，还要通过incorporateDequeues()方法修正各索引位的值，
+                     * 并且还要视图在取出lastRet索引位上的数据后，才设定迭代器失效呢？
+                     * 为什么不是直接设定Itr迭代器失效就可以了呢？这个原因和remove()方法的处理逻辑有关系。
+                     *
+                     * remove()方法的作用是删除Itr迭代器上一次从next()方法获取数据时，其索引位上的数据（lastRet索引位上的数据）——
+                     * 真正的从ArrayBlockingQueue队列中删除。一定要注意不是删除当前cursor游标指向的索引位上的数据。
+                     */
                     incorporateDequeues(); // might update lastRet
+                    // 如果lastRet没有过时,获取lastItem
                     if (lastRet >= 0) {
                         lastItem = itemAt(lastRet);
-                        // assert lastItem != null;
+                        // 调用detach,将迭代器置为DETACHED状态
                         detach();
                     }
                 }
-                // assert isDetached();
-                // assert lastRet < 0 ^ lastItem != null;
+                // assert isDetached(); 迭代器处于了DETACHED状态
+                // assert lastRet < 0 ^ lastItem != null; 且已满足
             } finally {
                 lock.unlock();
             }
@@ -1216,22 +1337,35 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         public E next() {
             // assert lock.getHoldCount() == 0;
             final E x = nextItem;
+            // 注意，如果nextItem中没有数据，则直接抛出异常，这就是为什么在执行next()方法前，
+            // 一定要先使用hasNext()方法检查迭代器的有效性
             if (x == null)
                 throw new NoSuchElementException();
             final ReentrantLock lock = ArrayBlockingQueue.this.lock;
             lock.lock();
             try {
+                // 如果当前迭代器不是“独立”模式（也就是说没有失效）
+                // 则通过incorporateDequeues方法对lastRet、nextIndex、cursor、prevCycles、prevTakeIndex属性进行修正
+                // 保证以上这些属性的状态值，和当前ArrayBlockingQueue队列集合的状态一致。
+                // incorporateDequeues方法很重要，下文中立即会进行介绍
                 if (!isDetached())
+                    // 保证返回的元素不是过时的数据
                     incorporateDequeues();
                 // assert nextIndex != NONE;
                 // assert lastItem == null;
                 lastRet = nextIndex;
                 final int cursor = this.cursor;
+                // 如果当前游标有效（不为NONE）
                 if (cursor >= 0) {
+                    // 那么游标的索引位置就成为下一个取数的位置
                     nextItem = itemAt(nextIndex = cursor);
-                    // assert nextItem != null;
+                    // 接着游标索引位+1，注意：这是游标索引位可能为None
+                    // 代表取出下一个数后，就再无数可取，遍历结束
                     this.cursor = incCursor(cursor);
+                // 否则就认为已无数可取，迭代器工作结束
                 } else {
+                    // 如果cursor<0表示遍历完成,就将nextIndex置为NONE
+                    // 以便下一次hasNext方法将迭代器置为DETACHED模式
                     nextIndex = NONE;
                     nextItem = null;
                 }
@@ -1242,30 +1376,49 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         }
 
         public void remove() {
-            // assert lock.getHoldCount() == 0;
+            // remove方法的操作意义并不是移除当前cursor游标所指向的索引位上的数据
+            // 而是移除上一次通过next()方法返回的索引位上的数据，也就是当前lastRet所指向的索引位上的数据
             final ReentrantLock lock = ArrayBlockingQueue.this.lock;
             lock.lock();
             try {
+                // 同样，获取操作权后，首先通过incorporateDequeues()方法
                 if (!isDetached())
+                    // 主要是修正lastRet是否过时,也可能让迭代器失效
                     incorporateDequeues(); // might update lastRet or detach
                 final int lastRet = this.lastRet;
                 this.lastRet = NONE;
+                /**
+                 *  迭代器上一次调用next方法返回的索引有效
+                 * 	需要注意下面方法能够调用removeAt()方法说明
+                 * 	lastRet==takeIndex 或 lastRet 在 takeIndex之后,
+                 * 	所以在removeAt()方法中会分情况来处理.
+                 */
+                // 如果lastRet的索引位有效，且Itr迭代器有效，则移除ArrayBlockingQueue队列中lastRet索引位上的数据
                 if (lastRet >= 0) {
+                    // 如果迭代器未失效,直接删除索引lastRet对应的元素
                     if (!isDetached())
                         removeAt(lastRet);
+                    // 如果lastRet的索引位有效，但Itr迭代器无效，
+                    // 则移除ArrayBlockingQueue队列中lastRet索引位上的数据
+                    // 还要取消lastItem对数据对象的引用
                     else {
                         final E lastItem = this.lastItem;
                         // assert lastItem != null;
                         this.lastItem = null;
+                        // 如果迭代器记录的索引lastRet对应元素与lastItem相同就会删除
                         if (itemAt(lastRet) == lastItem)
                             removeAt(lastRet);
                     }
+                // 如果lastRet已被标识为无效
+                // 出现这种情况的场景最有可能是Itr迭代器创建时ArrayBlockingQueue队列中没有任何数据
+                // 或者是Itr迭代器创建后，虽然有数据可以遍历，但是还没有使用next()方法读取任何索引位上的数据
+                // 这是抛出IllegalStateException异常
                 } else if (lastRet == NONE)
                     throw new IllegalStateException();
                 // else lastRet == REMOVED and the last returned element was
                 // previously asynchronously removed via an operation other
                 // than this.remove(), so nothing to do.
-
+                // lastRet < 0 && cursor < 0 && nextIndex < 0:迭代器遍历完成
                 if (cursor < 0 && nextIndex < 0)
                     detach();
             } finally {
@@ -1283,6 +1436,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
          */
         void shutdown() {
             // assert lock.getHoldCount() == 1;
+            // 清空三个索引：cursor、nextIndex、lastRet
             cursor = NONE;
             if (nextIndex >= 0)
                 nextIndex = REMOVED;
@@ -1366,12 +1520,15 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
          * @return true if this iterator should be unlinked from itrs
          */
         boolean takeIndexWrapped() {
-            // assert lock.getHoldCount() == 1;
-            if (isDetached())
+            // 判断当前迭代器是否失效，返回true表示迭代器失效。
+            if (isDetached()) // 判断是否失效
                 return true;
+            // 如果迭代器记录的轮数小于最新的轮数2轮或以上
+            // 说明新的数据已经将当时迭代器记录的变量索引全部覆盖
+            // 即迭代器中的变量索引过时,就让该迭代器失效
             if (itrs.cycles - prevCycles > 1) {
                 // All the elements that existed at the time of the last
-                // operation are gone, so abandon further iteration.
+                // 关闭迭代器,将迭代器记录的变量索引都<0
                 shutdown();
                 return true;
             }

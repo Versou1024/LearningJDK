@@ -118,10 +118,49 @@ import sun.misc.Unsafe;
  * }}</pre>
  */
 public class LockSupport {
-    private LockSupport() {} // Cannot be instantiated.
+    /**
+     *  一个先进先出非重入锁类的框架示意：
+     *  class FIFOMutex { // 创建一个FIFOMutex对象mutex
+     *    private final AtomicBoolean locked = new AtomicBoolean(false);
+     *    private final Queue<Thread> waiters = new ConcurrentLinkedQueue<Thread>();
+     *
+     *    public void lock() {  // 调用 mutex.lock()
+     *      boolean wasInterrupted = false;
+     *      Thread current = Thread.currentThread();
+     *      waiters.add(current);
+     *
+     *      // Block while not first in queue or cannot acquire lock
+     *      while (waiters.peek() != current || !locked.compareAndSet(false, true)) { // 等待队列的第一个线程是自己；或者 不是自己但将locked从false改为true的CAS操作失败 -- while循环的原因是避免虚假唤醒
+     *        LockSupport.park(this); // 线程第一次直接调用park，由于默认的permit数量为0，因此直接阻塞当前线程
+     *        if (Thread.interrupted()) // 循环等待时，忽略中断
+     *          wasInterrupted = true; //中断标志设置为true
+     *      }
+     *
+     *      waiters.remove();       //从while循环中结束后的操作
+     *      if (wasInterrupted)          // reassert interrupt status on exit
+     *        current.interrupt();
+     *    }
+     *
+     *    public void unlock() { // 同一个线程调用 mutex.unlock()
+     *      locked.set(false); // 将锁定标志设置为false -- 即解锁
+     *      LockSupport.unpark(waiters.peek()); // 队首元素 -- 唤醒，即将对应的线程的permit改为1，即可唤醒对方
+     *    }
+     *  }
+     */
+    /**
+     * 方法park和unpark提供了阻塞和解除阻塞线程的有效方法
+     * park 使得线程阻塞，许可证变为1
+     * park 使得解除阻塞线程，许可证变为0
+     * 此类与使用它的每个线程关联一个许可。 如果许可证可用， park呼叫将立即返回，并在此过程中消耗它； 否则可能会阻塞。 如果许可证尚不可用，则调用unpark可使许可证可用。 （但与信号量不同，许可证不会累积。最多有一个。）
+     * 三种形式的park都支持一个blocker对象参数。 该对象在线程被阻塞时被记录下来，以允许监视和诊断工具通过该对象找到线程，进而识别线程被阻塞的原因。
+     * 每个线程只有一个许可，所以任何对park的中间使用都可能会干扰其预期效果。
+     */
+    private LockSupport() {} // 不允许创建
 
     private static void setBlocker(Thread t, Object arg) {
-        // Even though volatile, hotspot doesn't need a write barrier here.
+        /**
+         * 此方法用于设置线程t的parkBlocker字段的值为arg【即某个blocker】
+         */
         UNSAFE.putObject(t, parkBlockerOffset, arg);
     }
 
@@ -137,6 +176,7 @@ public class LockSupport {
      *        this operation has no effect
      */
     public static void unpark(Thread thread) {
+        //
         if (thread != null)
             UNSAFE.unpark(thread);
     }
@@ -170,9 +210,25 @@ public class LockSupport {
      * @since 1.6
      */
     public static void park(Object blocker) {
+        /**
+         * 许可证只有一个，要想许可证有用，只有三种办法触发
+         * 1、其他线程为当前线程调用unpark
+         * 2、其他线程中断当前线程
+         * 3、无缘无故的返回
+         */
         Thread t = Thread.currentThread();
-        setBlocker(t, blocker);
+        setBlocker(t, blocker); //记录当前线程等待的对象（阻塞对象）；
+        /**
+         * 有许可证就运行，无许可证就阻塞，初始化的线程的许可证数量默认为0；
+         * 第一个参数：是否需要相对时间
+         * 第二个参数：等待阻塞的超时时间
+         */
         UNSAFE.park(false, 0L);
+        /**
+         * 如果没有第二个setBlocker，那么之后如果没有先调用park(Object blocker)，
+         * 而直接调用getBlocker函数，得到的还是前一个park(Object blocker)设置的blocker，显然是不符合逻辑的。
+         * 总之，必须要保证在park(Object blocker)整个函数执行完后，该线程的parkBlocker字段又恢复为null。所以，park(Object)型函数里必须要调用setBlocker函数两次。
+         */
         setBlocker(t, null);
     }
 
@@ -209,6 +265,7 @@ public class LockSupport {
      * @since 1.6
      */
     public static void parkNanos(Object blocker, long nanos) {
+        //和park()方法类似，不过增加了等待的相对时间
         if (nanos > 0) {
             Thread t = Thread.currentThread();
             setBlocker(t, blocker);
@@ -251,6 +308,7 @@ public class LockSupport {
      * @since 1.6
      */
     public static void parkUntil(Object blocker, long deadline) {
+        //和park()方法类似，不过增加了等待的绝对时间
         Thread t = Thread.currentThread();
         setBlocker(t, blocker);
         UNSAFE.park(true, deadline);

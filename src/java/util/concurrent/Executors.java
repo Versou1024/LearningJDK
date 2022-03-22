@@ -498,9 +498,13 @@ public class Executors {
     // Non-public classes supporting the public methods
 
     /**
-     * A callable that runs given task and returns given result
+     * 运行给定任务并返回给定结果的可调用函数
      */
     static final class RunnableAdapter<T> implements Callable<T> {
+        /**
+         * 实现啦Callable接口，接受一个Runnable的方法run()在
+         * 重写的方法call()中执行，执行完后，返回指定的result
+         */
         final Runnable task;
         final T result;
         RunnableAdapter(Runnable task, T result) {
@@ -592,12 +596,15 @@ public class Executors {
 
     /**
      * The default thread factory
+     * <p>
+     *     默认线程工厂，通常在线程池中都使用该线程工厂
+     * </p>
      */
     static class DefaultThreadFactory implements ThreadFactory {
-        private static final AtomicInteger poolNumber = new AtomicInteger(1);
-        private final ThreadGroup group;
-        private final AtomicInteger threadNumber = new AtomicInteger(1);
-        private final String namePrefix;
+        private static final AtomicInteger poolNumber = new AtomicInteger(1); // 线程池的序号
+        private final ThreadGroup group; // 线程组的作用是方便管理
+        private final AtomicInteger threadNumber = new AtomicInteger(1); // 线程池中的线程的序号
+        private final String namePrefix; // 线程前缀
 
         DefaultThreadFactory() {
             SecurityManager s = System.getSecurityManager();
@@ -608,14 +615,19 @@ public class Executors {
                          "-thread-";
         }
 
-        public Thread newThread(Runnable r) {
+        public Thread newThread(Runnable r) { // ThreadFactory的抽象方法
             Thread t = new Thread(group, r,
                                   namePrefix + threadNumber.getAndIncrement(),
                                   0);
+            /*
+             * new Thread的源码可知，守护和优先级取决于当前线程，因此必须修改掉
+             * this.daemon = parent.isDaemon();
+             * this.priority = parent.getPriority();
+             */
             if (t.isDaemon())
-                t.setDaemon(false);
+                t.setDaemon(false); // 一定不是守护线程
             if (t.getPriority() != Thread.NORM_PRIORITY)
-                t.setPriority(Thread.NORM_PRIORITY);
+                t.setPriority(Thread.NORM_PRIORITY); // 优先级一定是5
             return t;
         }
     }

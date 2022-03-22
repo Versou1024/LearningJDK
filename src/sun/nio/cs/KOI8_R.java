@@ -1,0 +1,70 @@
+package sun.nio.cs;
+
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+
+public class KOI8_R extends Charset
+  implements HistoricallyNamedCharset
+{
+  public KOI8_R()
+  {
+    super("KOI8-R", StandardCharsets.aliases_KOI8_R);
+  }
+
+  public String historicalName()
+  {
+    return "KOI8_R";
+  }
+
+  public boolean contains(Charset paramCharset)
+  {
+    return ((paramCharset.name().equals("US-ASCII")) || (paramCharset instanceof KOI8_R));
+  }
+
+  public CharsetDecoder newDecoder()
+  {
+    return new Decoder(this);
+  }
+
+  public CharsetEncoder newEncoder()
+  {
+    return new Encoder(this);
+  }
+
+  public String getDecoderSingleByteMappings()
+  {
+    return "";
+  }
+
+  public short[] getEncoderIndex1()
+  {
+    return Encoder.access$000();
+  }
+
+  public String getEncoderIndex2()
+  {
+    return "";
+  }
+
+  private static class Decoder extends SingleByteDecoder
+  {
+    private static final String byteToCharTable = "";
+
+    public Decoder(Charset paramCharset)
+    {
+      super(paramCharset, "");
+    }
+  }
+
+  private static class Encoder extends SingleByteEncoder
+  {
+    private static final String index2 = "";
+    private static final short[] index1 = { 0, 248, 248, 248, 503, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 734, 958, 248, 1214, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248, 248 };
+
+    public Encoder(Charset paramCharset)
+    {
+      super(paramCharset, index1, "", 65280, 255, 8);
+    }
+  }
+}

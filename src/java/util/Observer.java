@@ -44,4 +44,5 @@ public interface Observer {
      *                 method.
      */
     void update(Observable o, Object arg);
+    // 抽象者接口，
 }

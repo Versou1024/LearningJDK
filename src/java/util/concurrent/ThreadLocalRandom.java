@@ -82,53 +82,28 @@ import sun.misc.VM;
  */
 public class ThreadLocalRandom extends Random {
     /*
-     * This class implements the java.util.Random API (and subclasses
-     * Random) using a single static instance that accesses random
-     * number state held in class Thread (primarily, field
-     * threadLocalRandomSeed). In doing so, it also provides a home
-     * for managing package-private utilities that rely on exactly the
-     * same state as needed to maintain the ThreadLocalRandom
-     * instances. We leverage the need for an initialization flag
-     * field to also use it as a "probe" -- a self-adjusting thread
-     * hash used for contention avoidance, as well as a secondary
-     * simpler (xorShift) random seed that is conservatively used to
-     * avoid otherwise surprising users by hijacking the
-     * ThreadLocalRandom sequence.  The dual use is a marriage of
-     * convenience, but is a simple and efficient way of reducing
-     * application-level overhead and footprint of most concurrent
-     * programs.
-     *
-     * Even though this class subclasses java.util.Random, it uses the
-     * same basic algorithm as java.util.SplittableRandom.  (See its
-     * internal documentation for explanations, which are not repeated
-     * here.)  Because ThreadLocalRandoms are not splittable
-     * though, we use only a single 64bit gamma.
-     *
-     * Because this class is in a different package than class Thread,
-     * field access methods use Unsafe to bypass access control rules.
-     * To conform to the requirements of the Random superclass
-     * constructor, the common static ThreadLocalRandom maintains an
-     * "initialized" field for the sake of rejecting user calls to
-     * setSeed while still allowing a call from constructor.  Note
-     * that serialization is completely unnecessary because there is
-     * only a static singleton.  But we generate a serial form
-     * containing "rnd" and "initialized" fields to ensure
-     * compatibility across versions.
-     *
-     * Implementations of non-core methods are mostly the same as in
-     * SplittableRandom, that were in part derived from a previous
-     * version of this class.
-     *
-     * The nextLocalGaussian ThreadLocal supports the very rarely used
-     * nextGaussian method by providing a holder for the second of a
-     * pair of them. As is true for the base class version of this
-     * method, this time/space tradeoff is probably never worthwhile,
-     * but we provide identical statistical properties.
+    当前类说明：
+    与当前线程隔离的随机数生成器。 与Math类使用的全局Random生成器一样， ThreadLocalRandom使用内部生成的种子进行初始化，否则该种子可能不会被修改。
+    如果适用，在并发程序中使用ThreadLocalRandom而不是共享的Random对象通常会减少开销和争用。特别当多个任务（例如，每个ForkJoinTask ）在线程池中并行使用随机数时，使用ThreadLocalRandom尤其合适。
+    此类的用法通常应采用以下形式： ThreadLocalRandom.current().nextX(...) （其中X是Int 、 Long等），当所有用法都采用这种形式时，永远不可能在多个线程之间共享ThreadLocalRandom 。
+    此类还提供了其他常用的有界随机生成方法。
+    ThreadLocalRandom的实例在密码学上不是安全的，应该考虑在安全敏感的应用程序中使用java.security.SecureRandom 。
+    此外，默认构造的实例不使用加密随机种子，除非系统属性java.util.secureRandomSeed设置为true 。
+    Random类的缺点：
+    随机数生成是一个非常常见的操作，而且 Java 也提供了 java.util.Random 类用于生成随机数，而且呢，这个类也是线程安全的，就是有一点不好，在多线程下，它的性能不佳。
+    因为，它采用了多个线程共享一个 Random 实例。这样就会导致多个线程争用。
+    不同于Random的地方：
+    0、ThreadLocalRandom 是 ThreadLocal 类和 Random 类的组合，它与当前线程隔离，通过简单地避免对 Random 对象的任何并发访问，在多线程环境中实现了更好的性能。
+    1、与 Random 类不同的是，ThreadLocalRandom 不支持显式设置种子。因为它重写了从 Random 继承的 setSeed(long seed) 方法，会在调用时始终抛出 UnsupportedOperationException。
      */
 
-    /** Generates per-thread initialization/probe field */
-    private static final AtomicInteger probeGenerator =
-        new AtomicInteger();
+    /**
+     *  Generates per-thread initialization/probe field
+     *  <p>
+     *      生成每个线程的 初始化/探测 与 initialization/probe 字段
+     *  </p>
+     */
+    private static final AtomicInteger probeGenerator = new AtomicInteger();
 
     /**
      * The next seed for default constructors.
@@ -144,19 +119,18 @@ public class ThreadLocalRandom extends Random {
                 s = (s << 8) | ((long)(seedBytes[i]) & 0xffL);
             return s;
         }
-        return (mix64(System.currentTimeMillis()) ^
-                mix64(System.nanoTime()));
+        return (mix64(System.currentTimeMillis()) ^ mix64(System.nanoTime()));
     }
 
     /**
      * The seed increment
      */
-    private static final long GAMMA = 0x9e3779b97f4a7c15L;
+    private static final long GAMMA = 0x9e3779b97f4a7c15L; // 计算新的种子时，旧种子需要添加的值
 
     /**
      * The increment for generating probe values
      */
-    private static final int PROBE_INCREMENT = 0x9e3779b9;
+    private static final int PROBE_INCREMENT = 0x9e3779b9; // 计算新的探测值时，旧探测值需要添加的值
 
     /**
      * The increment of seeder per new instance
@@ -168,8 +142,7 @@ public class ThreadLocalRandom extends Random {
     private static final float  FLOAT_UNIT  = 0x1.0p-24f; // 1.0f / (1 << 24)
 
     /** Rarely-used holder for the second of a pair of Gaussians */
-    private static final ThreadLocal<Double> nextLocalGaussian =
-        new ThreadLocal<Double>();
+    private static final ThreadLocal<Double> nextLocalGaussian = new ThreadLocal<Double>();
 
     private static long mix64(long z) {
         z = (z ^ (z >>> 33)) * 0xff51afd7ed558ccdL;
@@ -186,15 +159,15 @@ public class ThreadLocalRandom extends Random {
      * Field used only during singleton initialization.
      * True when constructor completes.
      */
-    boolean initialized;
+    boolean initialized; // 是否初始化
 
     /** Constructor used only for static singleton */
     private ThreadLocalRandom() {
-        initialized = true; // false during super() call
+        initialized = true; //
     }
 
     /** The common ThreadLocalRandom */
-    static final ThreadLocalRandom instance = new ThreadLocalRandom();
+    static final ThreadLocalRandom instance = new ThreadLocalRandom(); // 多个线程共享一个实例，而种子保存在各个线程变量副本中
 
     /**
      * Initialize Thread fields for the current thread.  Called only
@@ -204,10 +177,11 @@ public class ThreadLocalRandom extends Random {
      * rely on (static) atomic generators to initialize the values.
      */
     static final void localInit() {
-        int p = probeGenerator.addAndGet(PROBE_INCREMENT);
+        int p = probeGenerator.addAndGet(PROBE_INCREMENT); // 探测迭代器 添加 0x9e3779b9
         int probe = (p == 0) ? 1 : p; // skip 0
-        long seed = mix64(seeder.getAndAdd(SEEDER_INCREMENT));
+        long seed = mix64(seeder.getAndAdd(SEEDER_INCREMENT)); // 种子迭代器 添加 0xbb67ae8584caa73bL
         Thread t = Thread.currentThread();
+        // 设置线程的种子和探测值
         UNSAFE.putLong(t, SEED, seed);
         UNSAFE.putInt(t, PROBE, probe);
     }
@@ -217,9 +191,10 @@ public class ThreadLocalRandom extends Random {
      *
      * @return the current thread's {@code ThreadLocalRandom}
      */
-    public static ThreadLocalRandom current() {
-        if (UNSAFE.getInt(Thread.currentThread(), PROBE) == 0)
-            localInit();
+    public static ThreadLocalRandom current() { // 静态方法 -- 多个线程调用都会返回同一个实例
+        if (UNSAFE.getInt(Thread.currentThread(), PROBE) == 0) // 监测线程的探测值是否为0，线程副本变量的探测值默认就是0
+            localInit(); // 初始化seed和probe即种子和探针给对应线程
+        // 返回共享的 ThreadLocalRandom 实例
         return instance;
     }
 
@@ -236,9 +211,9 @@ public class ThreadLocalRandom extends Random {
     }
 
     final long nextSeed() {
+        // 根据当前拥有的种子数 计算并返回下一个seed
         Thread t; long r; // read and update per-thread seed
-        UNSAFE.putLong(t = Thread.currentThread(), SEED,
-                       r = UNSAFE.getLong(t, SEED) + GAMMA);
+        UNSAFE.putLong(t = Thread.currentThread(), SEED, r = UNSAFE.getLong(t, SEED) + GAMMA);
         return r;
     }
 
@@ -347,9 +322,12 @@ public class ThreadLocalRandom extends Random {
      * @throws IllegalArgumentException if {@code bound} is not positive
      */
     public int nextInt(int bound) {
+        // nextInt(100) 请注意，这是一个右开区间，也就是说，上面的实例生成的随机数在 [负无穷,100) 之间，不包含 100
         if (bound <= 0)
             throw new IllegalArgumentException(BadBound);
+        // nextSeed()获取线程的种子，mix32()计算随机值
         int r = mix32(nextSeed());
+        // 根据bound，对随机值进行裁剪
         int m = bound - 1;
         if ((bound & m) == 0) // power of two
             r &= m;
@@ -374,6 +352,7 @@ public class ThreadLocalRandom extends Random {
      *         or equal to {@code bound}
      */
     public int nextInt(int origin, int bound) {
+        // nextInt(0, 100) 请注意，这是一个左闭右开区间，也就是说，上面的实例生成的随机数在 [0,100) 之间，包含了 0 但不包含 100
         if (origin >= bound)
             throw new IllegalArgumentException(BadRange);
         return internalNextInt(origin, bound);
@@ -496,7 +475,7 @@ public class ThreadLocalRandom extends Random {
     }
 
     public double nextGaussian() {
-        // Use nextLocalGaussian instead of nextGaussian field
+        // Java 8 还添加了 nextGaussian() 方法从生成器序列中生成下一个正态分布的值，其值范围在 0.0 和 1.0 之间
         Double d = nextLocalGaussian.get();
         if (d != null) {
             nextLocalGaussian.set(null);
@@ -969,12 +948,21 @@ public class ThreadLocalRandom extends Random {
      *
      * Note: Because of package-protection issues, versions of some
      * these methods also appear in some subpackage classes.
+     *
+     * 下面这些方法的用法说明可以在使用它们的类中找到。
+     * 简单地说，一个线程的“probe”值是一个非零Hash值，它不会与其他现有线程发生任何关于2的幂的冲突。'
+     * 当它发生碰撞时，会进行伪随机调整（使用Marsaglia XorShift）。
+     * nextSecondarySeed方法在与ThreadLocalRandom相同的上下文中使用，但仅适用于临时用途，
+     * 例如廉价的RNG就足够了的随机自适应自旋/块序列，如果我们使用它，原则上可能会破坏主ThreadLocalRandom的用户可见统计特性。注意：由于包保护问题，这些方法的一些版本也出现在一些子包类中。
      */
 
     /**
      * Returns the probe value for the current thread without forcing
      * initialization. Note that invoking ThreadLocalRandom.current()
-     * can be used to force initialization on zero return.
+     * can be used to force initialization on zero return.<br/>
+     * 返回当前线程的探测值，而不强制初始化。
+     * 请注意，调用ThreadLocalRandom.current()可用于在零返回时强制初始化。
+     * 一个线程多次调用getProbe()，将返回同一个值
      */
     static final int getProbe() {
         return UNSAFE.getInt(Thread.currentThread(), PROBE);
@@ -983,6 +971,9 @@ public class ThreadLocalRandom extends Random {
     /**
      * Pseudo-randomly advances and records the given probe value for the
      * given thread.
+     * <p>
+     *     伪随机前进并记录给定线程的给定探测值。
+     * </p>
      */
     static final int advanceProbe(int probe) {
         probe ^= probe << 13;   // xorshift
@@ -1058,12 +1049,10 @@ public class ThreadLocalRandom extends Random {
         try {
             UNSAFE = sun.misc.Unsafe.getUnsafe();
             Class<?> tk = Thread.class;
-            SEED = UNSAFE.objectFieldOffset
-                (tk.getDeclaredField("threadLocalRandomSeed"));
-            PROBE = UNSAFE.objectFieldOffset
-                (tk.getDeclaredField("threadLocalRandomProbe"));
-            SECONDARY = UNSAFE.objectFieldOffset
-                (tk.getDeclaredField("threadLocalRandomSecondarySeed"));
+            // 注意 SEED PROBE SECONDARY 都是来自线程类的静态属性
+            SEED = UNSAFE.objectFieldOffset(tk.getDeclaredField("threadLocalRandomSeed"));
+            PROBE = UNSAFE.objectFieldOffset(tk.getDeclaredField("threadLocalRandomProbe"));
+            SECONDARY = UNSAFE.objectFieldOffset(tk.getDeclaredField("threadLocalRandomSecondarySeed"));
         } catch (Exception e) {
             throw new Error(e);
         }

@@ -59,6 +59,9 @@ import java.nio.ByteBuffer;
  * @author Nakul Saraiya
  */
 public final class Method extends Executable {
+    /**
+     * 方法
+     */
     private Class<?>            clazz;
     private int                 slot;
     // This is guaranteed to be interned by the VM in the 1.4

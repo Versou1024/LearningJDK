@@ -39,20 +39,9 @@ import java.util.Collection;
 import java.util.Queue;
 
 /**
- * A {@link java.util.Queue} that additionally supports operations
- * that wait for the queue to become non-empty when retrieving an
- * element, and wait for space to become available in the queue when
- * storing an element.
- *
- * <p>{@code BlockingQueue} methods come in four forms, with different ways
- * of handling operations that cannot be satisfied immediately, but may be
- * satisfied at some point in the future:
- * one throws an exception, the second returns a special value (either
- * {@code null} or {@code false}, depending on the operation), the third
- * blocks the current thread indefinitely until the operation can succeed,
- * and the fourth blocks for only a given maximum time limit before giving
- * up.  These methods are summarized in the following table:
- *
+ * BlockingQueue是一种阻塞队列，支持在检索元素时等待直到队列变为非空，在存储元素时等待直到队列中的空间变为可用的操作。
+ * BlockingQueue方法有四种形式，有不同的处理操作的方法，这些操作不能立即满足，但在将来的某个时候可能会满足：
+ * 一种抛出异常，一种返回特殊值（null或false，取决于操作），一种无限期地阻塞当前线程，直到操作成功，一种在放弃之前只阻塞给定的最长时间限制。下表总结了这些方法：
  * <table BORDER CELLPADDING=3 CELLSPACING=1>
  * <caption>Summary of BlockingQueue methods</caption>
  *  <tr>
@@ -84,49 +73,18 @@ import java.util.Queue;
  *    <td><em>not applicable</em></td>
  *  </tr>
  * </table>
- *
- * <p>A {@code BlockingQueue} does not accept {@code null} elements.
- * Implementations throw {@code NullPointerException} on attempts
- * to {@code add}, {@code put} or {@code offer} a {@code null}.  A
- * {@code null} is used as a sentinel value to indicate failure of
- * {@code poll} operations.
- *
- * <p>A {@code BlockingQueue} may be capacity bounded. At any given
- * time it may have a {@code remainingCapacity} beyond which no
- * additional elements can be {@code put} without blocking.
- * A {@code BlockingQueue} without any intrinsic capacity constraints always
- * reports a remaining capacity of {@code Integer.MAX_VALUE}.
- *
- * <p>{@code BlockingQueue} implementations are designed to be used
- * primarily for producer-consumer queues, but additionally support
- * the {@link java.util.Collection} interface.  So, for example, it is
- * possible to remove an arbitrary element from a queue using
- * {@code remove(x)}. However, such operations are in general
- * <em>not</em> performed very efficiently, and are intended for only
- * occasional use, such as when a queued message is cancelled.
- *
- * <p>{@code BlockingQueue} implementations are thread-safe.  All
- * queuing methods achieve their effects atomically using internal
- * locks or other forms of concurrency control. However, the
- * <em>bulk</em> Collection operations {@code addAll},
- * {@code containsAll}, {@code retainAll} and {@code removeAll} are
- * <em>not</em> necessarily performed atomically unless specified
- * otherwise in an implementation. So it is possible, for example, for
- * {@code addAll(c)} to fail (throwing an exception) after adding
- * only some of the elements in {@code c}.
- *
- * <p>A {@code BlockingQueue} does <em>not</em> intrinsically support
- * any kind of &quot;close&quot; or &quot;shutdown&quot; operation to
- * indicate that no more items will be added.  The needs and usage of
- * such features tend to be implementation-dependent. For example, a
- * common tactic is for producers to insert special
- * <em>end-of-stream</em> or <em>poison</em> objects, that are
- * interpreted accordingly when taken by consumers.
- *
- * <p>
- * Usage example, based on a typical producer-consumer scenario.
- * Note that a {@code BlockingQueue} can safely be used with multiple
- * producers and multiple consumers.
+ * <p>BlockingQueue不接受空元素。在尝试add、put或offer时，实现会抛出NullPointerException。因为null用作指示轮询操作失败的哨兵值。
+ * <p>阻塞队列可能有容量限制。在任何给定的时间，它可能有一个剩余容量，超过这个容量，就不能不阻塞地放置额外的元件。
+ * 没有任何容量约束的BlockingQueue总是报告整数的剩余容量的最大值[无界队列]。
+ * <p>BlockingQueue实现主要用于生产者-消费者队列，但还支持收集接口。
+ * 例如，可以使用remove（x）从队列中删除任意元素[不遵守队列的队头出队尾进的规则]。
+ * 然而，这样的操作通常不会非常有效地执行，并且仅用于偶尔使用，例如当排队的消息被取消时。
+ * <p>BlockingQueue实现是线程安全的。所有排队方法都使用内部锁或其他形式的并发控制以原子方式实现其效果。
+ * 但是，除非在实现中另有规定，否则批量收集操作addAll、containsAll、retainAll和removeAll不一定以原子方式执行。
+ * 因此，例如，addAll（c）在只添加c中的一些元素后失败（引发异常）是可能的。
+ * <p>BlockingQueue本质上不支持任何类型的“关闭”或“关闭”操作，以指示不再添加任何项目。
+ * 这些功能的需求和使用往往取决于实现。例如，一种常见的策略是生产商插入特殊的流末或有毒物品，当消费者使用这些物品时，会相应地进行解释。
+ * <p>使用示例，基于典型的生产者-消费者场景。请注意，BlockingQueue可以安全地用于多个生产者和多个消费者。
  *  <pre> {@code
  * class Producer implements Runnable {
  *   private final BlockingQueue queue;
@@ -134,22 +92,20 @@ import java.util.Queue;
  *   public void run() {
  *     try {
  *       while (true) { queue.put(produce()); }
- *     } catch (InterruptedException ex) { ... handle ...}
+ *     } catch (InterruptedException ex) { ... handle ...
  *   }
  *   Object produce() { ... }
  * }
- *
  * class Consumer implements Runnable {
  *   private final BlockingQueue queue;
  *   Consumer(BlockingQueue q) { queue = q; }
  *   public void run() {
  *     try {
  *       while (true) { consume(queue.take()); }
- *     } catch (InterruptedException ex) { ... handle ...}
+ *     } catch (InterruptedException ex) { ... handle ...
  *   }
  *   void consume(Object x) { ... }
  * }
- *
  * class Setup {
  *   void main() {
  *     BlockingQueue q = new SomeQueueImplementation();
@@ -162,29 +118,13 @@ import java.util.Queue;
  *   }
  * }}</pre>
  *
- * <p>Memory consistency effects: As with other concurrent
- * collections, actions in a thread prior to placing an object into a
- * {@code BlockingQueue}
- * <a href="package-summary.html#MemoryVisibility"><i>happen-before</i></a>
- * actions subsequent to the access or removal of that element from
- * the {@code BlockingQueue} in another thread.
- *
- * <p>This interface is a member of the
- * <a href="{@docRoot}/../technotes/guides/collections/index.html">
- * Java Collections Framework</a>.
- *
- * @since 1.5
- * @author Doug Lea
- * @param <E> the type of elements held in this collection
  */
 public interface BlockingQueue<E> extends Queue<E> {
     /**
-     * Inserts the specified element into this queue if it is possible to do
-     * so immediately without violating capacity restrictions, returning
-     * {@code true} upon success and throwing an
-     * {@code IllegalStateException} if no space is currently available.
-     * When using a capacity-restricted queue, it is generally preferable to
-     * use {@link #offer(Object) offer}.
+     * 如果可以在不违反容量限制的情况下立即将指定的元素插入此队列，则在成功时返回true，
+     * 如果当前没有可用空间，则抛出IllegalStateException。
+     * 使用容量受限队列时，通常最好使用offer。
+     * 因此该方法不返回false
      *
      * @param e the element to add
      * @return {@code true} (as specified by {@link Collection#add})

@@ -170,6 +170,11 @@ public class CountDownLatch {
         }
 
         protected int tryAcquireShared(int acquires) {
+            /*
+             由CountDownLatch.await()方法间接调用
+             作用：判断当前state是否为0，就表示为可以不阻塞啦，
+             返回-1，就需要阻塞起来，入队列
+             */
             return (getState() == 0) ? 1 : -1;
         }
 
@@ -178,10 +183,10 @@ public class CountDownLatch {
             for (;;) {
                 int c = getState();
                 if (c == 0)
-                    return false;
+                    return false; // 若state已经为0，继续尝试释放state会失败
                 int nextc = c-1;
-                if (compareAndSetState(c, nextc))
-                    return nextc == 0;
+                if (compareAndSetState(c, nextc)) // 更新state
+                    return nextc == 0; // 返回true，表示哦最后一个线程调用的countdown() -- r然后就会调用到doReleaseShared()中来激活阻塞的线程
             }
         }
     }
@@ -228,7 +233,7 @@ public class CountDownLatch {
      *         while waiting
      */
     public void await() throws InterruptedException {
-        sync.acquireSharedInterruptibly(1);
+        sync.acquireSharedInterruptibly(1); // CountDownLatch的选择实现的AQS方法支持中断
     }
 
     /**
@@ -288,7 +293,7 @@ public class CountDownLatch {
      * <p>If the current count equals zero then nothing happens.
      */
     public void countDown() {
-        sync.releaseShared(1);
+        sync.releaseShared(1); // 释放state的值
     }
 
     /**

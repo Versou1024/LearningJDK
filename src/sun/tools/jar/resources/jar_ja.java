@@ -1,0 +1,11 @@
+package sun.tools.jar.resources;
+
+import java.util.ListResourceBundle;
+
+public final class jar_ja extends ListResourceBundle
+{
+  protected final Object[][] getContents()
+  {
+    return { { "error.bad.cflag", "フラグ 'c' ではマニフェストか入力ファイルの指定が必要です。" }, { "error.bad.eflag", "'e' フラグと 'Main-Class' 属性を持つマニフェストは同時に指定できません。" }, { "error.bad.option", "オプション -{ctxu} のうちの 1 つを指定しなければなりません。" }, { "error.bad.uflag", "フラグ 'u' ではマニフェストか 'e' フラグ、または入力ファイルの指定が必要です。" }, { "error.cant.open", "{0} を開くことができません。 " }, { "error.create.dir", "ディレクトリ {0} を作成できませんでした。" }, { "error.illegal.option", "不正なオプション: {0}" }, { "error.incorrect.length", "{0} の処理中に不正な長さがありました。" }, { "error.nosuch.fileordir", "{0} というファイルまたはディレクトリはありません。" }, { "error.write.file", "既存 jar ファイルの書き込み中にエラーが発生しました。" }, { "out.added.manifest", "マニフェストが追加されました。" }, { "out.adding", "{0} を追加中です。" }, { "out.create", "  {0} が作成されました。" }, { "out.deflated", "({0}% 収縮されました)" }, { "out.extracted", "{0} が抽出されました。" }, { "out.ignore.entry", "エントリ {0} を無視します。" }, { "out.inflated", " {0} が展開されました。" }, { "out.size", "(入 = {0}) (出 = {1})" }, { "out.stored", "(0% 格納されました)" }, { "out.update.manifest", "マニフェストが更新されました。" }, { "usage", "使い方: jar {ctxui}[vfm0Me] [jar-file] [manifest-file] [entry-point] [-C dir] files ...\nオプション:\n    -c  アーカイブを新規作成する\n    -t  アーカイブの内容を一覧表示する\n    -x  指定の (またはすべての) ファイルをアーカイブから抽出する\n    -u  既存アーカイブを更新する\n    -v  標準出力に詳細な出力を生成する\n    -f  アーカイブファイル名を指定する\n    -m  指定のマニフェストファイルからマニフェスト情報を取り込む\n    -e  実行可能 jar ファイルにバンドルされたスタンドアロンアプリケーションの\n        エントリポイントを指定する\n    -0  格納のみ。ZIP 圧縮を使用しない\n    -M  エントリのマニフェストファイルを作成しない\n    -i  指定の jar ファイルのインデックス情報を生成する\n    -C  指定のディレクトリに変更し、以下のファイルを取り込む\nファイルがディレクトリの場合は再帰的に処理されます。\nマニフェストファイル名、アーカイブファイル名およびエントリポイント名は、\nフラグ 'm'、'f'、'e' の指定と同じ順番で指定しなければなりません。\n\n例 1: 2 つのクラスファイルをアーカイブ classes.jar に保存する:\n       jar cvf classes.jar Foo.class Bar.class \n例 2: 既存のマニフェストファイル 'mymanifest' を使用し、foo/ ディレクトリの\n      全ファイルを 'classes.jar' にアーカイブする:\n       jar cvfm classes.jar mymanifest -C foo/ .\n" } };
+  }
+}

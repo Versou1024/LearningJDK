@@ -49,16 +49,17 @@ public interface Consumer<T> {
     void accept(T t);
 
     /**
-     * Returns a composed {@code Consumer} that performs, in sequence, this
-     * operation followed by the {@code after} operation. If performing either
-     * operation throws an exception, it is relayed to the caller of the
-     * composed operation.  If performing this operation throws an exception,
-     * the {@code after} operation will not be performed.
+     * 返回一个组合的Consumer ，它依次执行此操作和after操作。 如果执行任一操作引发异常，则将其转发给组合操作的调用者。 如果执行此操作抛出异常，则不会执行after操作。
+     * 参数：
+     * after – 在此操作之后执行的操作
+     * 返回：
+     * 一个组合的Consumer ，它依次执行此操作和after操作
+     * 抛出：
+     * NullPointerException – 如果after为空
      *
-     * @param after the operation to perform after this operation
-     * @return a composed {@code Consumer} that performs in sequence this
-     * operation followed by the {@code after} operation
-     * @throws NullPointerException if {@code after} is null
+     * after不能为空；
+     * 从最后的lambda表达式可知：先执行this.accept(t)、然后执行after.accept(t)
+     * 返回结果是一个 组合的consumer，该组合的consumer里面执行的是this和after的accept
      */
     default Consumer<T> andThen(Consumer<? super T> after) {
         Objects.requireNonNull(after);

@@ -55,13 +55,13 @@ public class AtomicInteger extends Number implements java.io.Serializable {
     private static final long serialVersionUID = 6214790243416807050L;
 
     // setup to use Unsafe.compareAndSwapInt for updates
-    private static final Unsafe unsafe = Unsafe.getUnsafe();
+    private static final Unsafe unsafe = Unsafe.getUnsafe(); //调用Unsafe的获取单例的方法
     private static final long valueOffset;
 
     static {
         try {
             valueOffset = unsafe.objectFieldOffset
-                (AtomicInteger.class.getDeclaredField("value"));
+                (AtomicInteger.class.getDeclaredField("value")); //getDeclaredField获取相对于当前类的在内存中的偏移量
         } catch (Exception ex) { throw new Error(ex); }
     }
 
@@ -72,14 +72,14 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      *
      * @param initialValue the initial value
      */
-    public AtomicInteger(int initialValue) {
+    public AtomicInteger(int initialValue) { //初始化
         value = initialValue;
     }
 
     /**
      * Creates a new AtomicInteger with initial value {@code 0}.
      */
-    public AtomicInteger() {
+    public AtomicInteger() { // 默认值为0
     }
 
     /**
@@ -106,7 +106,7 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      * @param newValue the new value
      * @since 1.6
      */
-    public final void lazySet(int newValue) {
+    public final void lazySet(int newValue) { //延迟set
         unsafe.putOrderedInt(this, valueOffset, newValue);
     }
 
@@ -145,7 +145,7 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      * @param update the new value
      * @return {@code true} if successful
      */
-    public final boolean weakCompareAndSet(int expect, int update) {
+    public final boolean weakCompareAndSet(int expect, int update) { //不保证volatile的happens - before规则
         return unsafe.compareAndSwapInt(this, valueOffset, expect, update);
     }
 

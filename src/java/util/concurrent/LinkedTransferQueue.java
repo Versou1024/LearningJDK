@@ -88,331 +88,25 @@ import java.util.function.Consumer;
 public class LinkedTransferQueue<E> extends AbstractQueue<E>
     implements TransferQueue<E>, java.io.Serializable {
     private static final long serialVersionUID = -3223113410248163686L;
-
     /*
-     * *** Overview of Dual Queues with Slack ***
+     * LinkedTransferQueue采用一种预占模式。意思就是消费者线程取元素时，如果队列不为空，则直接取走数据，若队列为空，那就生成一个节点
+     * （节点元素为null）入队，然后消费者线程被等待在这个节点上，后面生产者线程入队时发现有一个元素为null的节点，生产者线程就不入队了，
+     * 直接就将元素填充到该节点，并唤醒该节点等待的线程，被唤醒的消费者线程取走元素，从调用的方法返回。我们称这种节点操作为“匹配”方式。
      *
-     * Dual Queues, introduced by Scherer and Scott
-     * (http://www.cs.rice.edu/~wns1/papers/2004-DISC-DDS.pdf) are
-     * (linked) queues in which nodes may represent either data or
-     * requests.  When a thread tries to enqueue a data node, but
-     * encounters a request node, it instead "matches" and removes it;
-     * and vice versa for enqueuing requests. Blocking Dual Queues
-     * arrange that threads enqueuing unmatched requests block until
-     * other threads provide the match. Dual Synchronous Queues (see
-     * Scherer, Lea, & Scott
-     * http://www.cs.rochester.edu/u/scott/papers/2009_Scherer_CACM_SSQ.pdf)
-     * additionally arrange that threads enqueuing unmatched data also
-     * block.  Dual Transfer Queues support all of these modes, as
-     * dictated by callers.
-     *
-     * A FIFO dual queue may be implemented using a variation of the
-     * Michael & Scott (M&S) lock-free queue algorithm
-     * (http://www.cs.rochester.edu/u/scott/papers/1996_PODC_queues.pdf).
-     * It maintains two pointer fields, "head", pointing to a
-     * (matched) node that in turn points to the first actual
-     * (unmatched) queue node (or null if empty); and "tail" that
-     * points to the last node on the queue (or again null if
-     * empty). For example, here is a possible queue with four data
-     * elements:
-     *
-     *  head                tail
-     *    |                   |
-     *    v                   v
-     *    M -> U -> U -> U -> U
-     *
-     * The M&S queue algorithm is known to be prone to scalability and
-     * overhead limitations when maintaining (via CAS) these head and
-     * tail pointers. This has led to the development of
-     * contention-reducing variants such as elimination arrays (see
-     * Moir et al http://portal.acm.org/citation.cfm?id=1074013) and
-     * optimistic back pointers (see Ladan-Mozes & Shavit
-     * http://people.csail.mit.edu/edya/publications/OptimisticFIFOQueue-journal.pdf).
-     * However, the nature of dual queues enables a simpler tactic for
-     * improving M&S-style implementations when dual-ness is needed.
-     *
-     * In a dual queue, each node must atomically maintain its match
-     * status. While there are other possible variants, we implement
-     * this here as: for a data-mode node, matching entails CASing an
-     * "item" field from a non-null data value to null upon match, and
-     * vice-versa for request nodes, CASing from null to a data
-     * value. (Note that the linearization properties of this style of
-     * queue are easy to verify -- elements are made available by
-     * linking, and unavailable by matching.) Compared to plain M&S
-     * queues, this property of dual queues requires one additional
-     * successful atomic operation per enq/deq pair. But it also
-     * enables lower cost variants of queue maintenance mechanics. (A
-     * variation of this idea applies even for non-dual queues that
-     * support deletion of interior elements, such as
-     * j.u.c.ConcurrentLinkedQueue.)
-     *
-     * Once a node is matched, its match status can never again
-     * change.  We may thus arrange that the linked list of them
-     * contain a prefix of zero or more matched nodes, followed by a
-     * suffix of zero or more unmatched nodes. (Note that we allow
-     * both the prefix and suffix to be zero length, which in turn
-     * means that we do not use a dummy header.)  If we were not
-     * concerned with either time or space efficiency, we could
-     * correctly perform enqueue and dequeue operations by traversing
-     * from a pointer to the initial node; CASing the item of the
-     * first unmatched node on match and CASing the next field of the
-     * trailing node on appends. (Plus some special-casing when
-     * initially empty).  While this would be a terrible idea in
-     * itself, it does have the benefit of not requiring ANY atomic
-     * updates on head/tail fields.
-     *
-     * We introduce here an approach that lies between the extremes of
-     * never versus always updating queue (head and tail) pointers.
-     * This offers a tradeoff between sometimes requiring extra
-     * traversal steps to locate the first and/or last unmatched
-     * nodes, versus the reduced overhead and contention of fewer
-     * updates to queue pointers. For example, a possible snapshot of
-     * a queue is:
-     *
-     *  head           tail
-     *    |              |
-     *    v              v
-     *    M -> M -> U -> U -> U -> U
-     *
-     * The best value for this "slack" (the targeted maximum distance
-     * between the value of "head" and the first unmatched node, and
-     * similarly for "tail") is an empirical matter. We have found
-     * that using very small constants in the range of 1-3 work best
-     * over a range of platforms. Larger values introduce increasing
-     * costs of cache misses and risks of long traversal chains, while
-     * smaller values increase CAS contention and overhead.
-     *
-     * Dual queues with slack differ from plain M&S dual queues by
-     * virtue of only sometimes updating head or tail pointers when
-     * matching, appending, or even traversing nodes; in order to
-     * maintain a targeted slack.  The idea of "sometimes" may be
-     * operationalized in several ways. The simplest is to use a
-     * per-operation counter incremented on each traversal step, and
-     * to try (via CAS) to update the associated queue pointer
-     * whenever the count exceeds a threshold. Another, that requires
-     * more overhead, is to use random number generators to update
-     * with a given probability per traversal step.
-     *
-     * In any strategy along these lines, because CASes updating
-     * fields may fail, the actual slack may exceed targeted
-     * slack. However, they may be retried at any time to maintain
-     * targets.  Even when using very small slack values, this
-     * approach works well for dual queues because it allows all
-     * operations up to the point of matching or appending an item
-     * (hence potentially allowing progress by another thread) to be
-     * read-only, thus not introducing any further contention. As
-     * described below, we implement this by performing slack
-     * maintenance retries only after these points.
-     *
-     * As an accompaniment to such techniques, traversal overhead can
-     * be further reduced without increasing contention of head
-     * pointer updates: Threads may sometimes shortcut the "next" link
-     * path from the current "head" node to be closer to the currently
-     * known first unmatched node, and similarly for tail. Again, this
-     * may be triggered with using thresholds or randomization.
-     *
-     * These ideas must be further extended to avoid unbounded amounts
-     * of costly-to-reclaim garbage caused by the sequential "next"
-     * links of nodes starting at old forgotten head nodes: As first
-     * described in detail by Boehm
-     * (http://portal.acm.org/citation.cfm?doid=503272.503282) if a GC
-     * delays noticing that any arbitrarily old node has become
-     * garbage, all newer dead nodes will also be unreclaimed.
-     * (Similar issues arise in non-GC environments.)  To cope with
-     * this in our implementation, upon CASing to advance the head
-     * pointer, we set the "next" link of the previous head to point
-     * only to itself; thus limiting the length of connected dead lists.
-     * (We also take similar care to wipe out possibly garbage
-     * retaining values held in other Node fields.)  However, doing so
-     * adds some further complexity to traversal: If any "next"
-     * pointer links to itself, it indicates that the current thread
-     * has lagged behind a head-update, and so the traversal must
-     * continue from the "head".  Traversals trying to find the
-     * current tail starting from "tail" may also encounter
-     * self-links, in which case they also continue at "head".
-     *
-     * It is tempting in slack-based scheme to not even use CAS for
-     * updates (similarly to Ladan-Mozes & Shavit). However, this
-     * cannot be done for head updates under the above link-forgetting
-     * mechanics because an update may leave head at a detached node.
-     * And while direct writes are possible for tail updates, they
-     * increase the risk of long retraversals, and hence long garbage
-     * chains, which can be much more costly than is worthwhile
-     * considering that the cost difference of performing a CAS vs
-     * write is smaller when they are not triggered on each operation
-     * (especially considering that writes and CASes equally require
-     * additional GC bookkeeping ("write barriers") that are sometimes
-     * more costly than the writes themselves because of contention).
-     *
-     * *** Overview of implementation ***
-     *
-     * We use a threshold-based approach to updates, with a slack
-     * threshold of two -- that is, we update head/tail when the
-     * current pointer appears to be two or more steps away from the
-     * first/last node. The slack value is hard-wired: a path greater
-     * than one is naturally implemented by checking equality of
-     * traversal pointers except when the list has only one element,
-     * in which case we keep slack threshold at one. Avoiding tracking
-     * explicit counts across method calls slightly simplifies an
-     * already-messy implementation. Using randomization would
-     * probably work better if there were a low-quality dirt-cheap
-     * per-thread one available, but even ThreadLocalRandom is too
-     * heavy for these purposes.
-     *
-     * With such a small slack threshold value, it is not worthwhile
-     * to augment this with path short-circuiting (i.e., unsplicing
-     * interior nodes) except in the case of cancellation/removal (see
-     * below).
-     *
-     * We allow both the head and tail fields to be null before any
-     * nodes are enqueued; initializing upon first append.  This
-     * simplifies some other logic, as well as providing more
-     * efficient explicit control paths instead of letting JVMs insert
-     * implicit NullPointerExceptions when they are null.  While not
-     * currently fully implemented, we also leave open the possibility
-     * of re-nulling these fields when empty (which is complicated to
-     * arrange, for little benefit.)
-     *
-     * All enqueue/dequeue operations are handled by the single method
-     * "xfer" with parameters indicating whether to act as some form
-     * of offer, put, poll, take, or transfer (each possibly with
-     * timeout). The relative complexity of using one monolithic
-     * method outweighs the code bulk and maintenance problems of
-     * using separate methods for each case.
-     *
-     * Operation consists of up to three phases. The first is
-     * implemented within method xfer, the second in tryAppend, and
-     * the third in method awaitMatch.
-     *
-     * 1. Try to match an existing node
-     *
-     *    Starting at head, skip already-matched nodes until finding
-     *    an unmatched node of opposite mode, if one exists, in which
-     *    case matching it and returning, also if necessary updating
-     *    head to one past the matched node (or the node itself if the
-     *    list has no other unmatched nodes). If the CAS misses, then
-     *    a loop retries advancing head by two steps until either
-     *    success or the slack is at most two. By requiring that each
-     *    attempt advances head by two (if applicable), we ensure that
-     *    the slack does not grow without bound. Traversals also check
-     *    if the initial head is now off-list, in which case they
-     *    start at the new head.
-     *
-     *    If no candidates are found and the call was untimed
-     *    poll/offer, (argument "how" is NOW) return.
-     *
-     * 2. Try to append a new node (method tryAppend)
-     *
-     *    Starting at current tail pointer, find the actual last node
-     *    and try to append a new node (or if head was null, establish
-     *    the first node). Nodes can be appended only if their
-     *    predecessors are either already matched or are of the same
-     *    mode. If we detect otherwise, then a new node with opposite
-     *    mode must have been appended during traversal, so we must
-     *    restart at phase 1. The traversal and update steps are
-     *    otherwise similar to phase 1: Retrying upon CAS misses and
-     *    checking for staleness.  In particular, if a self-link is
-     *    encountered, then we can safely jump to a node on the list
-     *    by continuing the traversal at current head.
-     *
-     *    On successful append, if the call was ASYNC, return.
-     *
-     * 3. Await match or cancellation (method awaitMatch)
-     *
-     *    Wait for another thread to match node; instead cancelling if
-     *    the current thread was interrupted or the wait timed out. On
-     *    multiprocessors, we use front-of-queue spinning: If a node
-     *    appears to be the first unmatched node in the queue, it
-     *    spins a bit before blocking. In either case, before blocking
-     *    it tries to unsplice any nodes between the current "head"
-     *    and the first unmatched node.
-     *
-     *    Front-of-queue spinning vastly improves performance of
-     *    heavily contended queues. And so long as it is relatively
-     *    brief and "quiet", spinning does not much impact performance
-     *    of less-contended queues.  During spins threads check their
-     *    interrupt status and generate a thread-local random number
-     *    to decide to occasionally perform a Thread.yield. While
-     *    yield has underdefined specs, we assume that it might help,
-     *    and will not hurt, in limiting impact of spinning on busy
-     *    systems.  We also use smaller (1/2) spins for nodes that are
-     *    not known to be front but whose predecessors have not
-     *    blocked -- these "chained" spins avoid artifacts of
-     *    front-of-queue rules which otherwise lead to alternating
-     *    nodes spinning vs blocking. Further, front threads that
-     *    represent phase changes (from data to request node or vice
-     *    versa) compared to their predecessors receive additional
-     *    chained spins, reflecting longer paths typically required to
-     *    unblock threads during phase changes.
-     *
-     *
-     * ** Unlinking removed interior nodes **
-     *
-     * In addition to minimizing garbage retention via self-linking
-     * described above, we also unlink removed interior nodes. These
-     * may arise due to timed out or interrupted waits, or calls to
-     * remove(x) or Iterator.remove.  Normally, given a node that was
-     * at one time known to be the predecessor of some node s that is
-     * to be removed, we can unsplice s by CASing the next field of
-     * its predecessor if it still points to s (otherwise s must
-     * already have been removed or is now offlist). But there are two
-     * situations in which we cannot guarantee to make node s
-     * unreachable in this way: (1) If s is the trailing node of list
-     * (i.e., with null next), then it is pinned as the target node
-     * for appends, so can only be removed later after other nodes are
-     * appended. (2) We cannot necessarily unlink s given a
-     * predecessor node that is matched (including the case of being
-     * cancelled): the predecessor may already be unspliced, in which
-     * case some previous reachable node may still point to s.
-     * (For further explanation see Herlihy & Shavit "The Art of
-     * Multiprocessor Programming" chapter 9).  Although, in both
-     * cases, we can rule out the need for further action if either s
-     * or its predecessor are (or can be made to be) at, or fall off
-     * from, the head of list.
-     *
-     * Without taking these into account, it would be possible for an
-     * unbounded number of supposedly removed nodes to remain
-     * reachable.  Situations leading to such buildup are uncommon but
-     * can occur in practice; for example when a series of short timed
-     * calls to poll repeatedly time out but never otherwise fall off
-     * the list because of an untimed call to take at the front of the
-     * queue.
-     *
-     * When these cases arise, rather than always retraversing the
-     * entire list to find an actual predecessor to unlink (which
-     * won't help for case (1) anyway), we record a conservative
-     * estimate of possible unsplice failures (in "sweepVotes").
-     * We trigger a full sweep when the estimate exceeds a threshold
-     * ("SWEEP_THRESHOLD") indicating the maximum number of estimated
-     * removal failures to tolerate before sweeping through, unlinking
-     * cancelled nodes that were not unlinked upon initial removal.
-     * We perform sweeps by the thread hitting threshold (rather than
-     * background threads or by spreading work to other threads)
-     * because in the main contexts in which removal occurs, the
-     * caller is already timed-out, cancelled, or performing a
-     * potentially O(n) operation (e.g. remove(x)), none of which are
-     * time-critical enough to warrant the overhead that alternatives
-     * would impose on other threads.
-     *
-     * Because the sweepVotes estimate is conservative, and because
-     * nodes become unlinked "naturally" as they fall off the head of
-     * the queue, and because we allow votes to accumulate even while
-     * sweeps are in progress, there are typically significantly fewer
-     * such nodes than estimated.  Choice of a threshold value
-     * balances the likelihood of wasted effort and contention, versus
-     * providing a worst-case bound on retention of interior nodes in
-     * quiescent queues. The value defined below was chosen
-     * empirically to balance these under various timeout scenarios.
-     *
-     * Note that we cannot self-link unlinked interior nodes during
-     * sweeps. However, the associated garbage chains terminate when
-     * some successor ultimately falls off the head of the list and is
-     * self-linked.
+     1. transfer(E e)：若当前存在一个正在等待获取的消费者线程，即立刻移交之；否则，会插入当前元素e到队列尾部，并且等待进入阻塞状态，到有消费者线程取走该元素。
+     2. tryTransfer(E e)：若当前存在一个正在等待获取的消费者线程（使用take()或者poll()函数），使用该方法会即刻转移/传输对象元素e；
+                          若不存在，则返回false，并且元素不进入队列。这是一个不阻塞的操作。
+     3. tryTransfer(E e, long timeout, TimeUnit unit)：若当前存在一个正在等待获取的消费者线程，会立即传输给它;否则将插入元素e到队列尾部，并且等待被消费者线程获取消费掉；
+                                                       若在指定的时间内元素e无法被消费者线程获取，则返回false，同时该元素被移除。
+     4. hasWaitingConsumer()：判断是否存在消费者线程。
+     5. getWaitingConsumerCount()：获取所有等待获取元素的消费线程数量。
+     6.size()：因为队列的异步特性，检测当前队列的元素个数需要逐一迭代，可能会得到一个不太准确的结果，尤其是在遍历时有可能队列发生更改。
+     7.批量操作：类似于addAll，removeAll, retainAll, containsAll, equals, toArray等方法，API不能保证一定会立刻执行。因此，我们在使用过程中，不能有所期待，这是一个具有异步特性的队列。
      */
 
     /** True if on multiprocessor */
     private static final boolean MP =
-        Runtime.getRuntime().availableProcessors() > 1;
+        Runtime.getRuntime().availableProcessors() > 1; // 是否为多CPU机器
 
     /**
      * The number of times to spin (with randomly interspersed calls
@@ -422,7 +116,7 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      * derived -- it works pretty well across a variety of processors,
      * numbers of CPUs, and OSes.
      */
-    private static final int FRONT_SPINS   = 1 << 7;
+    private static final int FRONT_SPINS   = 1 << 7; // 作为第一个等待节点在阻塞之前的自旋次数
 
     /**
      * The number of times to spin before blocking when a node is
@@ -431,7 +125,7 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      * base average frequency for yielding during spins. Must be a
      * power of two.
      */
-    private static final int CHAINED_SPINS = FRONT_SPINS >>> 1;
+    private static final int CHAINED_SPINS = FRONT_SPINS >>> 1; // 前驱节点正在处理，当前节点在阻塞之前的自旋次数
 
     /**
      * The maximum number of estimated removal failures (sweepVotes)
@@ -440,7 +134,7 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      * removal. See above for explanation. The value must be at least
      * two to avoid useless sweeps when removing trailing nodes.
      */
-    static final int SWEEP_THRESHOLD = 32;
+    static final int SWEEP_THRESHOLD = 32;// 断开被删除节点失败的次数
 
     /**
      * Queue nodes. Uses Object, not E, for items to allow forgetting
@@ -449,10 +143,14 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      * ordered wrt other accesses or CASes use simple relaxed forms.
      */
     static final class Node {
-        final boolean isData;   // false if this is a request node
-        volatile Object item;   // initially non-null if isData; CASed to match
-        volatile Node next;
-        volatile Thread waiter; // null until waiting
+        /*
+         * 数据节点【生产者】，匹配前item不为null且不为自身，匹配后设置为null。
+         * 占位请求节点【消费者】，匹配前item为null，匹配后自连接。
+         */
+        final boolean isData;   // 是否为数据节点，是则表示为一个生产者，否则就是消费者
+        volatile Object item;   // 值
+        volatile Node next;     // 下一个node
+        volatile Thread waiter; // 一直为null直到进入阻塞后
 
         // CAS methods for fields
         final boolean casNext(Node cmp, Node val) {
@@ -469,7 +167,7 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
          * only be seen after publication via casNext.
          */
         Node(Object item, boolean isData) {
-            UNSAFE.putObject(this, itemOffset, item); // relaxed write
+            UNSAFE.putObject(this, itemOffset, item); // 放松读 - 不需要Volatile读，或者order读
             this.isData = isData;
         }
 
@@ -478,7 +176,7 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
          * only after CASing head field, so uses relaxed write.
          */
         final void forgetNext() {
-            UNSAFE.putObject(this, nextOffset, this);
+            UNSAFE.putObject(this, nextOffset, this); // next设置为自身，帮助help GC
         }
 
         /**
@@ -491,6 +189,7 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
          * else we don't care).
          */
         final void forgetContents() {
+            // item设置为自己，waiter设置为null
             UNSAFE.putObject(this, itemOffset, this);
             UNSAFE.putObject(this, waiterOffset, null);
         }
@@ -500,6 +199,10 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
          * case of artificial matches due to cancellation.
          */
         final boolean isMatched() {
+            // 节点是否被匹配过了
+            // node.item为自身，只有消费者线程即占位请求节点被匹配后，才有这个情况
+            // node.item为空且为生产者线程 -- 初始的生产者Node有item，被消费后，item为null就是已被匹配
+            // node.item不为空且为消费者线程 -- 初始的消费者Node没有item，获取任务后，item不为null就是已被匹配
             Object x = item;
             return (x == this) || ((x == null) == isData);
         }
@@ -508,6 +211,8 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
          * Returns true if this is an unmatched request node.
          */
         final boolean isUnmatchedRequest() {
+            // 是否是一个未匹配的请求节点
+            // 如果是的话，则isData为false，且item为null，因为如果被匹配过了，item就不再为null，而是指向自己
             return !isData && item == null;
         }
 
@@ -517,8 +222,16 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
          * has opposite data mode.
          */
         final boolean cannotPrecede(boolean haveData) {
+            // 如果给定节点不能连接在当前节点后则返回true
             boolean d = isData;
             Object x;
+            /*  (item != null) == isData  一定要明白这个判断：
+             * 1、isData为true，item非null，表示数据节点，且数据item没有被消费，认为是还没匹配的
+             * 2、isData为false，item为null，表示预占位节点，且数据item仍为null，认为是还没匹配的
+             */
+            // 返回true的情况：
+            // 1、node为数据节点时，havaDate为false，且node不是已被删除的节点，node是未匹配的节点，即x还存在
+            // 1、node为预占位节点时，havaDate为true，且node不是已被删除的节点，node是未匹配的节点，即x不为null
             return d != haveData && (x = item) != this && (x != null) == d;
         }
 
@@ -526,7 +239,7 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
          * Tries to artificially match a data node -- used by remove.
          */
         final boolean tryMatchData() {
-            // assert isData;
+            // 匹配一个数据节点
             Object x = item;
             if (x != null && x != this && casItem(x, null)) {
                 LockSupport.unpark(waiter);
@@ -559,13 +272,13 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
     }
 
     /** head of the queue; null until first enqueue */
-    transient volatile Node head;
+    transient volatile Node head; // 消费者线程阻塞链表的头结点，只有有节点入队列唤醒
 
     /** tail of the queue; null until first append */
     private transient volatile Node tail;
 
     /** The number of apparent failures to unsplice removed nodes */
-    private transient volatile int sweepVotes;
+    private transient volatile int sweepVotes; // The number of apparent failures to unsplice removed nodes
 
     // CAS methods for fields
     private boolean casTail(Node cmp, Node val) {
@@ -581,7 +294,7 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
     }
 
     /*
-     * Possible values for "how" argument in xfer method.
+     * xfer方法的how参数的可能取值
      */
     private static final int NOW   = 0; // for untimed poll, tryTransfer
     private static final int ASYNC = 1; // for offer, put, add
@@ -595,57 +308,110 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
     }
 
     /**
-     * Implements all queuing methods. See above for explanation.
+     * 实现所有排队方法。请参见上面的解释。
      *
-     * @param e the item or null for take
-     * @param haveData true if this is a put, else a take
+     * @param e 排队的值
+     * @param haveData true表示入队操作，如put、offer、add，否则就是take、poll
      * @param how NOW, ASYNC, SYNC, or TIMED
-     * @param nanos timeout in nanosecs, used only if mode is TIMED
+     * @param nanos 超时时间，仅仅在TIMED情况下被使用
      * @return an item if matched, else e
      * @throws NullPointerException if haveData mode but e is null
      */
     private E xfer(E e, boolean haveData, int how, long nanos) {
+        /*
+         *  一些情况介绍：
+         * 1、空队列，调用add、offer、put，进入⑦(4),
+         *    队列只有未匹配的生产者Node，调用aaa/offer/put，进入③跳出循环，进入(4)追加节点
+         *    队列既有未匹配的生产者NOoe，也有已匹配的Node，调用aaa/offer/put，会在②判断出未匹配节点，从而在(2)(3)找出下一个遍历的节点p
+         *
+         * 2、队列头只有一个未匹配的消费者Node，调用add、offer、put，进入到④做匹配操作，将插入值e直接交给消费者Node，并唤醒对方
+         *    队列头有两个未匹配的消费者Node，两个线程调用add、offer、put，第一个线程在④做匹配操作，将插入值e交给消费Node，但不会进入(1)
+         *        第二个线程调用add、offer、put，第一个节点已经被匹配了，经过(2)(3)修改p值，下一次循环进入到④进行匹配，然后既然进入到(1)⑤中，
+         *        将当前匹配节点的第二个作为Head，第一个已经匹配节点next指向自己做逻辑删除，
+         * 4、空队列或者队列中全是消费者节点，调用take/poll，在①中，无法查找到一个未匹配的生产者节点，进入⑦添加消费者节点到队尾，然后进入⑨阻塞等待
+         *
+         * 1、寻找和操作匹配的节点
+         * 从head开始向后遍历寻找未被匹配的节点，找到一个未被匹配并且和本次操作的模式不同的节点，匹配节点成功就通过CAS 操作将匹配节点的item字段设置为e，若修改失败，则继续向后寻找节点。
+         * 通过CAS操作更新head节点为匹配节点的next节点，旧head节点进行自连接，唤醒匹配节点的等待线程waiter，返回匹配的 item。如果CAS失败，并且松弛度大于等于2，就需要重新获取head重试。
+         * 2、如果在上述操作中没有找到匹配节点，则根据参数how做不同的处理：
+         * NOW：立即返回，也不会插入节点
+         * SYNC：插入一个item为e（isData = haveData）到队列的尾部，然后自旋或阻塞当前线程直到节点被匹配或者取消。
+         * ASYNC：插入一个item为e（isData = haveData）到队列的尾部，不阻塞直接返回。
+         * TIMED：插入一个item为e（isData = haveData）到队列的尾部，然后自旋或阻塞当前线程直到节点被匹配或者取消或者超时。
+         *
+         * 松弛度：在节点被匹配（被删除）之后，不会立即更新head/tail，而是当 head/tail 节点和最近一个未匹配的节点之间的距离超过一个“松弛阀值”之后才会更新（
+         * 在LinkedTransferQueue中，这个值为 2）。这个“松弛阀值”一般为1-3，如果太大会降低缓存命中率，并且会增加遍历链的长度；太小会增加 CAS 的开销。
+         */
+        // 检查：若为数据节点，若值e为null抛出异常
         if (haveData && (e == null))
             throw new NullPointerException();
-        Node s = null;                        // the node to append, if needed
+        Node s = null;                        // 要追加的节点（如果需要）
 
         retry:
-        for (;;) {                            // restart on append race
-
+        for (;;) {                            // 在附加竞争中重新启动
+            // ① 从首节点开始匹配，p为当前遍历的node，isData为当前遍历节点类型，item为当前节点的值
             for (Node h = head, p = h; p != null;) { // find & match first node
                 boolean isData = p.isData;
                 Object item = p.item;
-                if (item != p && (item != null) == isData) { // unmatched
+                // ② 判断节点是否被逻辑删除即item德育自身，是否被匹配过
+                // item != null有2种情况：一是生产者put产生的元素还没被消费，二是消费者take操作的item从null被修改了(匹配成功)
+                // (item != null) == isData 表示p是一个put操作，要么表示p是一个还没匹配成功的take操作
+                if (item != p && (item != null) == isData) { // 不匹配 - 即未匹配的生产者或者消费者
+                    // ③ 节点与此次操作模式一致，无法匹配
                     if (isData == haveData)   // can't match
                         break;
+                    // ④ 否则就是匹配成功
                     if (p.casItem(item, e)) { // match
+                        // (1) 循环 -- 条件当前遍历的节点p不等于头结点，因此需要线程通过②(2)改变节点p，则要求之前的节点时已匹配的
+                        // 那么这个时候就允许就进入以下循环体，帮助逻辑前面的已匹配的删除节点
                         for (Node q = p; q != h;) {
-                            Node n = q.next;  // update by 2 unless singleton
+                            Node n = q.next;  // update by 2 unless singleton -- 延迟删除节点，
+                            // ⑤ 更新head为匹配节点，或者匹配节点next节点
                             if (head == h && casHead(h, n == null ? q : n)) {
+                                // 将旧节点自连接
                                 h.forgetNext();
                                 break;
                             }                 // advance and retry
+                            // ⑥
                             if ((h = head)   == null ||
                                 (q = h.next) == null || !q.isMatched())
                                 break;        // unless slack < 2
                         }
+                        // 匹配成功，则唤醒阻塞的线程
                         LockSupport.unpark(p.waiter);
+                        // 类型转换，返回被匹配节点的元素 --
+                        // 若haveData为true返回则就是匹配消费者的值即null
+                        // 若haveData为false返回的就是匹配生产者的值item
                         return LinkedTransferQueue.<E>cast(item);
                     }
                 }
+                // (2) 若节点已经被匹配过了，则向后寻找下一个未被匹配的节点
                 Node n = p.next;
-                p = (p != n) ? n : (h = head); // Use head if p offlist
+                // (3) 如果当前节点已经离队，则从head开始寻找，节点的next就是节点自身那么当前节点已被删除
+                // 从⑤可以看出，forgetNext()逻辑删除只会从链表头的已匹配的节点开始，因此在线程执行到这个期间，
+                // 若有线程已经将已匹配的队头清空就会产生问题，即h持有的head无效，需要重新赋值
+                p = (p != n) ? n : (h = head);
             }
-
+            // ⑦ 若整个队列都遍历之后，还没有找到匹配的节点，则进行后续处理
+            // 生产操作方法put\add\offer -- ASYNC，创建节点，但不阻塞等待
+            // 生产操作方法tryTransfer，与消费操作poll -- NOW，不创建任何节点
+            // 消费操作take -- SYNC，创建同步等待节点
+            // 消费超时poll超时，或生产超时的tryTransfer -- TIMED，创建超时等待节点
+            // 把当前节点加入到队列尾
             if (how != NOW) {                 // No matches available
                 if (s == null)
                     s = new Node(e, haveData);
+                //  (4) 将新节点s添加到队列尾并返回s的前驱节点
                 Node pred = tryAppend(s, haveData);
+
+                // ⑧ 前驱节点为null，说明有其他线程竞争，并修改了队列，则从retry重新开始
                 if (pred == null)
                     continue retry;           // lost race vs opposite mode
+                // ⑨ 不为ASYNC方法，则同步阻塞等待 -- 因此take()和超时poll()会超时等待
                 if (how != ASYNC)
                     return awaitMatch(s, pred, e, (how == TIMED), nanos);
             }
+            // ⑩ how == NOW，则立即返回
             return e; // not waiting
         }
     }
@@ -660,27 +426,46 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      * predecessor
      */
     private Node tryAppend(Node s, boolean haveData) {
+
+        /*
+         * 添加节点s到队列尾并返回s的前继节点，失败时（与其他不同模式线程竞争失败）返回null，没有前继节点则返回自身。
+         * 情况：假设为添加数据节点，假设tail永不和插入的node冲突，即不进入代码块②
+         * 1、无竞争，单线程追加，进入⑤，循环再进入⑦，
+         * 2、若两个线程同时竞争，同时进入⑤，
+         *          一个线程进入CAS成功后，循环进入⑦，不满足松弛度大于2
+         *          一个线程进入CAS失败后，循环进入⑤，再循环进入⑥，满足松弛度大于等于2，更新t
+         * 3、
+         */
+
+        // ① 从尾节点开始
         for (Node t = tail, p = t;;) {        // move p to last node and append
             Node n, u;                        // temps for reads of next & tail
+            // ② tail以及head都为空，需要尝试初始化
             if (p == null && (p = head) == null) {
                 if (casHead(null, s))
-                    return s;                 // initialize
+                    return s;
             }
+            // ③ p如果不支持在后面插入havaData，就直接返回
+            // haveData为true，若前一个为未匹配的消费节点，不允许附加到tail的next上
+            // haveData为false，若前一个为未匹配的生产节点，不允许附加到tail的next上
             else if (p.cannotPrecede(haveData))
                 return null;                  // lost race vs opposite mode
+            // ④ 多线程操作，p之前作为tail节点，若p.next不为空，说明有线程已经执行过⑤
             else if ((n = p.next) != null)    // not last; keep traversing
                 p = p != t && t != (u = tail) ? (t = u) : // stale tail
                     (p != n) ? n : null;      // restart if off list
+            // ⑤ 将s作为tail尾结点的next
             else if (!p.casNext(null, s))
-                p = p.next;                   // re-read on CAS failure
+                p = p.next;                   // CAS失败重新加载尾结点
             else {
-                if (p != t) {                 // update if slack now >= 2
+                // ⑥ 如果现在松弛>=2，则更新
+                if (p != t) {
                     while ((tail != t || !casTail(t, s)) &&
                            (t = tail)   != null &&
-                           (s = t.next) != null && // advance and retry
+                           (s = t.next) != null && // 提前重试
                            (s = s.next) != null && s != t);
                 }
-                return p;
+                return p; // ⑦
             }
         }
     }
@@ -698,41 +483,48 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      * @return matched item, or e if unmatched on interrupt or timeout
      */
     private E awaitMatch(Node s, Node pred, E e, boolean timed, long nanos) {
-        final long deadline = timed ? System.nanoTime() + nanos : 0L;
-        Thread w = Thread.currentThread();
-        int spins = -1; // initialized after first item and cancel checks
-        ThreadLocalRandom randomYields = null; // bound if needed
-
+        final long deadline = timed ? System.nanoTime() + nanos : 0L; // 计算超时时间点
+        Thread w = Thread.currentThread(); // 获取当前线程对象
+        int spins = -1; // 自旋次数
+        ThreadLocalRandom randomYields = null; // 随机数
+        // take()\超时poll()产生的消费者节点会进入阻塞等待
         for (;;) {
             Object item = s.item;
+            // 节点s的item在这期间已经改变，不等于e，说明node已经被匹配啦
+            // tale\poll，e为null，s被匹配后item为非null
             if (item != e) {                  // matched
                 // assert item != s;
-                s.forgetContents();           // avoid garbage
+                s.forgetContents();           // 防止产生垃圾
                 return LinkedTransferQueue.<E>cast(item);
             }
+            // 当前线程已被中断，或者已经超时，则CAS更新s.item=s帮助GC
             if ((w.isInterrupted() || (timed && nanos <= 0)) &&
                     s.casItem(e, s)) {        // cancel
                 unsplice(pred, s);
                 return e;
             }
-
+            // 自旋次数小于0，还未初始化，调用spinsFor()初始化spins为一个正数
             if (spins < 0) {                  // establish spins at/near front
                 if ((spins = spinsFor(pred, s.isData)) > 0)
                     randomYields = ThreadLocalRandom.current();
             }
+            // 自旋次数大于0，已初始化 -- 绝大多数的线程的node都会在这里面做自旋操作，
             else if (spins > 0) {             // spin
-                --spins;
+                --spins; // spins自旋直到为0，才会有机会进入下面的超时阻塞等待和永久阻塞中
                 if (randomYields.nextInt(CHAINED_SPINS) == 0)
-                    Thread.yield();           // occasionally yield
+                    Thread.yield();           // 偶尔yield让步
             }
+            // 初始化的node进入awaitMatch()后，waiter都为空，将其设置为当前线程
             else if (s.waiter == null) {
                 s.waiter = w;                 // request unpark then recheck
             }
+            // 超时阻塞等待
             else if (timed) {
                 nanos = deadline - System.nanoTime();
                 if (nanos > 0L)
                     LockSupport.parkNanos(this, nanos);
             }
+            // 永久阻塞
             else {
                 LockSupport.park(this);
             }
@@ -744,12 +536,16 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      * data mode. See above for explanation.
      */
     private static int spinsFor(Node pred, boolean haveData) {
+        /*
+         * 返回具有给定前置节点pred和数据模式haveData的节点的spin/yield值。请参见上面的解释。
+         */
+        // 多核CPU，且pred不为空，
         if (MP && pred != null) {
-            if (pred.isData != haveData)      // phase change
+            if (pred.isData != haveData)      // 不是同一种类型的node，1 << 7 + FRONT_SPINS >>> 1
                 return FRONT_SPINS + CHAINED_SPINS;
-            if (pred.isMatched())             // probably at front
+            if (pred.isMatched())             // 同一种类型的node，且前节点已经匹配过，1 << 7
                 return FRONT_SPINS;
-            if (pred.waiter == null)          // pred apparently spinning
+            if (pred.waiter == null)          // 同一种类型的node，前节点也没有匹配过，前节点没有waiter，自旋次数 1 << 6
                 return CHAINED_SPINS;
         }
         return 0;
@@ -807,10 +603,10 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
         for (Node p = head; p != null; p = succ(p)) {
             Object item = p.item;
             if (p.isData) {
-                if (item != null && item != p)
+                if (item != null && item != p) // 队头是未匹配未逻辑删除的，就可移除
                     return LinkedTransferQueue.<E>cast(item);
             }
-            else if (item == null)
+            else if (item == null) // 队头不是生产者Node，返回null
                 return null;
         }
         return null;
@@ -822,14 +618,19 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      */
     private int countOfMode(boolean data) {
         int count = 0;
+        // 计算当前链表中某种类型的node的未匹配的数量
         for (Node p = head; p != null; ) {
             if (!p.isMatched()) {
-                if (p.isData != data)
-                    return 0;
+                if (p.isData != data) // 从之前描述的4种队列情况可知，该链表中同一时刻只能存在一种类型的Node
+                    return 0; // 因此另一种类型的Node是0个
                 if (++count == Integer.MAX_VALUE) // saturated
                     break;
             }
             Node n = p.next;
+            // 从之前描述的5种队列情况可知，有两种队列即，
+            // 队列前部分是已匹配的消费者节点，后部分是未匹配的消费者Node
+            // 队列前部分是已匹配的生产者节点，后部分是未匹配的生产者Node
+            // 因此若有一个线程正在计算countOfMode()，可能有线程正在处理上述两种队列[将已匹配节点逻辑删除，更新Head]，因此这里需要更新head
             if (n != p)
                 p = n;
             else {
@@ -1054,37 +855,41 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      * @param s the node to be unspliced
      */
     final void unsplice(Node pred, Node s) {
+        // 在等待期间如果线程被中断或等待超时，则取消匹配，并调用unsplice方法解除节点s和其前继节点的链接 -- 设置item自连接，waiter为null
         s.forgetContents(); // forget unneeded fields
         /*
-         * See above for rationale. Briefly: if pred still points to
-         * s, try to unlink s.  If s cannot be unlinked, because it is
-         * trailing node or pred might be unlinked, and neither pred
-         * nor s are head or offlist, add to sweepVotes, and if enough
-         * votes have accumulated, sweep.
+         * 如果pred的next仍然指向s，请尝试取消s的链接。
+         * 如果s无法取消链接，因为它是尾随节点，或者pred可能已取消链接，
+         * 并且pred和s都不是head或offlist，请添加到sweepVotes，如果累积了足够的投票，请进行扫描。
          */
         if (pred != null && pred != s && pred.next == s) {
+            // 获取s的后继节点
             Node n = s.next;
+            // s的后继节点为null，或不为null，就将s的前驱节点的后继节点设置为n
             if (n == null ||
                 (n != s && pred.casNext(s, n) && pred.isMatched())) {
-                for (;;) {               // check if at, or could be, head
+                for (;;) {               // 检查是否在或可能在头部
                     Node h = head;
                     if (h == pred || h == s || h == null)
-                        return;          // at head or list empty
+                        return;          // 在头结点上，或者链表为空
                     if (!h.isMatched())
-                        break;
+                        break;          // 头结点非匹配的
                     Node hn = h.next;
                     if (hn == null)
                         return;          // now empty
                     if (hn != h && casHead(h, hn))
                         h.forgetNext();  // advance head
                 }
-                if (pred.next != pred && s.next != s) { // recheck if offlist
+                // 重新检查是否关闭列表
+                if (pred.next != pred && s.next != s) {
                     for (;;) {           // sweep now if enough votes
                         int v = sweepVotes;
+                        // 未达到阀值，更新sweepVotes
                         if (v < SWEEP_THRESHOLD) {
                             if (casSweepVotes(v, v + 1))
                                 break;
                         }
+                        // 达到阀值，进行“大扫除”，清除队列中的无效节点
                         else if (casSweepVotes(v, 0)) {
                             sweep();
                             break;
@@ -1101,16 +906,16 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      */
     private void sweep() {
         for (Node p = head, s, n; p != null && (s = p.next) != null; ) {
-            if (!s.isMatched())
+            if (!s.isMatched()) // next节点没有被匹配，继续迭代
                 // Unmatched nodes are never self-linked
                 p = s;
-            else if ((n = s.next) == null) // trailing node is pinned
+            else if ((n = s.next) == null) // 尾随节点为null，即到队尾，提前结束
                 break;
-            else if (s == n)    // stale
+            else if (s == n)    // 被移除的node，重新从头检查
                 // No need to also check for p == s, since that implies s == n
                 p = head;
             else
-                p.casNext(s, n);
+                p.casNext(s, n); // 节点s是已经匹配的节点，且节点s不是被移除的节点，在链表跳过节点s
         }
     }
 
@@ -1206,6 +1011,12 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified element is null
      */
     public boolean add(E e) {
+        // 正常队列5五种情况
+        // 队列空，直接插入生产者者Node，立即返回
+        // 队列只有未匹配的生产者Node，发现Head就是未匹配的生产者Node时，就可以决定插入生产者Node，然后立即返回
+        // 队列前面是已匹配的生产者Node[尚未清除]，发现Head是已匹配的节点，需要向下查找到一个没有被匹配的节点，然后帮助做逻辑删除，更新链表头，然后插入生产者Node，立即返回
+        // 队列只有未匹配的消费者Node，发现Head是未匹配的消费者Node，直接将插入值e交给对方
+        // 队列前面是已匹配的消费者[尚未清除]，发现Head是已匹配的节点，需要向下查找一个没有被匹配的节点，然后帮助做逻辑删除，更新链表头，然后将插入值e交给对方
         xfer(e, true, ASYNC, 0);
         return true;
     }
@@ -1266,6 +1077,12 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
     }
 
     public E take() throws InterruptedException {
+        // 正常队列5五种情况
+        // 队列空，插入同步等待的消费者Node，立即返回
+        // 队列只有未匹配的生产者Node，发现Head就是未匹配的生产者Node时，直接获取对方Node的值，然后立即返回
+        // 队列前面是已匹配的生产者Node[尚未清除]，发现Head是已匹配的节点，需要向下查找到一个没有被匹配的节点，然后帮助做逻辑删除，更新链表头，直接获取对方Node的值，立即返回
+        // 队列只有未匹配的消费者Node，发现Head是未匹配的消费者Node，插入同步等待的消费者Node，立即返回
+        // 队列前面是已匹配的消费者[尚未清除]，发现Head是已匹配的节点，需要向下查找一个没有被匹配的节点，然后帮助做逻辑删除，更新链表头，插入同步等待的消费者Node，立即返回
         E e = xfer(null, false, SYNC, 0);
         if (e != null)
             return e;
@@ -1274,6 +1091,12 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
     }
 
     public E poll(long timeout, TimeUnit unit) throws InterruptedException {
+        // 正常队列5五种情况
+        // 队列空，插入超时等待的消费者Node，立即返回
+        // 队列只有未匹配的生产者Node，发现Head就是未匹配的生产者Node时，直接获取对方Node的值，然后立即返回
+        // 队列前面是已匹配的生产者Node[尚未清除]，发现Head是已匹配的节点，需要向下查找到一个没有被匹配的节点，然后帮助做逻辑删除，更新链表头，直接获取对方Node的值，立即返回
+        // 队列只有未匹配的消费者Node，发现Head是未匹配的消费者Node，插入超时等待的消费者Node，立即返回
+        // 队列前面是已匹配的消费者[尚未清除]，发现Head是已匹配的节点，需要向下查找一个没有被匹配的节点，然后帮助做逻辑删除，更新链表头，插入超时等待的消费者Node，立即返回
         E e = xfer(null, false, TIMED, unit.toNanos(timeout));
         if (e != null || !Thread.interrupted())
             return e;
@@ -1281,6 +1104,12 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
     }
 
     public E poll() {
+        // 正常队列5五种情况
+        // 队列空，不会插入消费者Node，立即返回
+        // 队列只有未匹配的生产者Node，发现Head就是未匹配的生产者Node时，直接获取对方Node的值，然后立即返回
+        // 队列前面是已匹配的生产者Node[尚未清除]，发现Head是已匹配的节点，需要向下查找到一个没有被匹配的节点，然后帮助做逻辑删除，更新链表头，直接获取对方Node的值，立即返回
+        // 队列只有未匹配的消费者Node，发现Head是未匹配的消费者Node，但不会插入消费者Node，立即返回
+        // 队列前面是已匹配的消费者[尚未清除]，发现Head是已匹配的节点，需要向下查找一个没有被匹配的节点，然后帮助做逻辑删除，更新链表头，但不会插入消费者Node，立即返回
         return xfer(null, false, NOW, 0);
     }
 
@@ -1399,8 +1228,8 @@ public class LinkedTransferQueue<E> extends AbstractQueue<E>
         if (o == null) return false;
         for (Node p = head; p != null; p = succ(p)) {
             Object item = p.item;
-            if (p.isData) {
-                if (item != null && item != p && o.equals(item))
+            if (p.isData) { // 计算生产者Node中是否存在该值
+                if (item != null && item != p && o.equals(item)) // 未匹配且未逻辑删除且item等于o
                     return true;
             }
             else if (item == null)

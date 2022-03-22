@@ -34,6 +34,9 @@ package java.lang.reflect;
  * @since 1.5
  */
 public class GenericSignatureFormatError extends ClassFormatError {
+    /**
+     *
+     */
     private static final long serialVersionUID = 6709919147137911034L;
 
     /**

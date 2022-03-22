@@ -50,8 +50,8 @@ package java.util.concurrent.atomic;
 public class AtomicStampedReference<V> {
 
     private static class Pair<T> {
-        final T reference;
-        final int stamp;
+        final T reference; //引用对象
+        final int stamp; // 戳 - 版本
         private Pair(T reference, int stamp) {
             this.reference = reference;
             this.stamp = stamp;
@@ -70,7 +70,7 @@ public class AtomicStampedReference<V> {
      * @param initialRef the initial reference
      * @param initialStamp the initial stamp
      */
-    public AtomicStampedReference(V initialRef, int initialStamp) {
+    public AtomicStampedReference(V initialRef, int initialStamp) { //初始化
         pair = Pair.of(initialRef, initialStamp);
     }
 
@@ -79,7 +79,7 @@ public class AtomicStampedReference<V> {
      *
      * @return the current value of the reference
      */
-    public V getReference() {
+    public V getReference() { //获取引用值
         return pair.reference;
     }
 
@@ -88,7 +88,7 @@ public class AtomicStampedReference<V> {
      *
      * @return the current value of the stamp
      */
-    public int getStamp() {
+    public int getStamp() { //获取戳
         return pair.stamp;
     }
 
@@ -100,7 +100,7 @@ public class AtomicStampedReference<V> {
      * {@code stampholder[0]} will hold the value of the stamp.
      * @return the current value of the reference
      */
-    public V get(int[] stampHolder) {
+    public V get(int[] stampHolder) { //返回引用和戳记的当前值。典型用法是int[1]holder；ref=v.get（holder）。
         Pair<V> pair = this.pair;
         stampHolder[0] = pair.stamp;
         return pair.reference;
@@ -148,11 +148,11 @@ public class AtomicStampedReference<V> {
                                  int newStamp) {
         Pair<V> current = pair;
         return
-            expectedReference == current.reference &&
-            expectedStamp == current.stamp &&
-            ((newReference == current.reference &&
-              newStamp == current.stamp) ||
-             casPair(current, Pair.of(newReference, newStamp)));
+            expectedReference == current.reference && // 预期的引用相同
+            expectedStamp == current.stamp && // 预期的时间戳相同
+            ((newReference == current.reference && // 新的时间戳和新的应用和原来也一样
+              newStamp == current.stamp) || //满足上述要求，直接返回true，不需要CAS操作
+             casPair(current, Pair.of(newReference, newStamp))); //否则尝试CAS操作
     }
 
     /**
@@ -161,9 +161,9 @@ public class AtomicStampedReference<V> {
      * @param newReference the new value for the reference
      * @param newStamp the new value for the stamp
      */
-    public void set(V newReference, int newStamp) {
+    public void set(V newReference, int newStamp) { // 设置新的引用和戳
         Pair<V> current = pair;
-        if (newReference != current.reference || newStamp != current.stamp)
+        if (newReference != current.reference || newStamp != current.stamp) //要求：引用和戳都是不同于当前值
             this.pair = Pair.of(newReference, newStamp);
     }
 
@@ -180,7 +180,7 @@ public class AtomicStampedReference<V> {
      * @param newStamp the new value for the stamp
      * @return {@code true} if successful
      */
-    public boolean attemptStamp(V expectedReference, int newStamp) {
+    public boolean attemptStamp(V expectedReference, int newStamp) { // 当前引用和expectedReference相同，则更新newStamp
         Pair<V> current = pair;
         return
             expectedReference == current.reference &&
@@ -194,8 +194,8 @@ public class AtomicStampedReference<V> {
     private static final long pairOffset =
         objectFieldOffset(UNSAFE, "pair", AtomicStampedReference.class);
 
-    private boolean casPair(Pair<V> cmp, Pair<V> val) {
-        return UNSAFE.compareAndSwapObject(this, pairOffset, cmp, val);
+    private boolean casPair(Pair<V> cmp, Pair<V> val) { //尝试CAS操作
+        return UNSAFE.compareAndSwapObject(this, pairOffset, cmp, val); //调用UNSAFE类，将比较
     }
 
     static long objectFieldOffset(sun.misc.Unsafe UNSAFE,

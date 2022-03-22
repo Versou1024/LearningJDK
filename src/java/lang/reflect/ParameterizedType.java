@@ -45,6 +45,11 @@ package java.lang.reflect;
  * @since 1.5
  */
 public interface ParameterizedType extends Type {
+
+    /**
+     * 参数化类型
+     * 即 Map<String,String> 中的k和v的类型变量被参数化为String
+     */
     /**
      * Returns an array of {@code Type} objects representing the actual type
      * arguments to this type.

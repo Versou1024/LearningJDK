@@ -1,0 +1,11 @@
+package sun.tools.jar.resources;
+
+import java.util.ListResourceBundle;
+
+public final class jar_ko extends ListResourceBundle
+{
+  protected final Object[][] getContents()
+  {
+    return { { "error.bad.cflag", "'c' 플래그를 지정하려면 manifest 또는 입력 파일이 필요합니다!" }, { "error.bad.eflag", "'기본 클래스' 속성을 포함한 'e' 플래그 및 manifest를 함께 지정할 수\n없습니다." }, { "error.bad.option", "옵션 -{ctxu} 중 하나가 지정되어야 합니다." }, { "error.bad.uflag", "'u' 플래그를 지정하려면 manifest, 'e' 플래그 또는 입력 파일이 필요합니다!" }, { "error.cant.open", "{0}을(를) 열 수 없습니다. " }, { "error.create.dir", "{0} : 디렉토리를 만들 수 없습니다." }, { "error.illegal.option", "{0} 옵션이 잘못되었습니다." }, { "error.incorrect.length", "{0} 처리 중 길이가 잘못되었습니다." }, { "error.nosuch.fileordir", "{0} : 지정한 파일 또는 디렉토리가 없습니다." }, { "error.write.file", "기존의 jar 파일에 쓰는 중 오류 발생" }, { "out.added.manifest", "추가된 manifest" }, { "out.adding", "추가 중: {0}" }, { "out.create", "  {0}이(가) 작성되었습니다." }, { "out.deflated", "({0}%가 감소되었습니다.)" }, { "out.extracted", "{0}이(가) 추출되었습니다." }, { "out.ignore.entry", "입력 항목 {0} 무시 중" }, { "out.inflated", " {0}이(가) 증가되었습니다." }, { "out.size", "(내부 = {0}) (외부= {1})" }, { "out.stored", "(0%가 저장되었습니다.)" }, { "out.update.manifest", "업데이트된 manifest" }, { "usage", "사용법: jar {ctxui}[vfm0Me] [jar 파일] [manifest 파일] [시작 지점] [-C 디렉토리] 파일 ...\n옵션:\n    -c  새 아카이브 만들기\n    -t  아카이브에 대한 내용 목록 테이블\n    -x  명명된(또는 모든) 파일을 아카이브에서 추출\n    -u  기존 아카이브 업데이트\n    -v  표준 출력에 세부 정보 표시 출력 생성\n    -f  아카이브 파일 이름 지정\n    -m  지정한 매니페스트 파일로부터 매니페스트 정보 포함\n    -e  jar 실행 파일에 번들로 제공된 독립 실행형 응용 프로그램의 \n        응용 프로그램 시작 지점 지정\n    -0  저장 전용, ZIP 압축 사용 안 함\n    -M  항목에 대해 매니페스트 파일을 만들지 않음\n    -i  지정한 jar 파일에 대한 색인 정보 생성\n    -C  지정한 디렉토리로 변경하고 다음 파일 포함\n어떤 파일이 디렉토리면 재귀적으로 처리됩니다.\n매니페스트 파일 이름, 아카이브 파일 이름 및 시작 지점 이름은\n'm', 'f' 및 'e' 플래그와 동일한 순서로 지정됩니다.\n\n예 1: classes.jar라는 아카이브에 두 클래스 파일을 아카이브하는 방법: \n       jar cvf classes.jar Foo.class Bar.class \n예 2: 기존의 매니페스트 파일 'mymanifest'를 사용하여\n           foo/ 디렉토리의 모든 파일을 'classes.jar'로 아카이브하는 방법: \n       jar cvfm classes.jar mymanifest -C foo/ .\n" } };
+  }
+}

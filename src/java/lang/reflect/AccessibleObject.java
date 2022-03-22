@@ -131,8 +131,7 @@ public class AccessibleObject implements AnnotatedElement {
 
     /* Check that you aren't exposing java.lang.Class.<init> or sensitive
        fields in java.lang.Class. */
-    private static void setAccessible0(AccessibleObject obj, boolean flag)
-        throws SecurityException
+    private static void setAccessible0(AccessibleObject obj, boolean flag) throws SecurityException
     {
         if (obj instanceof Constructor && flag == true) {
             Constructor<?> c = (Constructor<?>)obj;

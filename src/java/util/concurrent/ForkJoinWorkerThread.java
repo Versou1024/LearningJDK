@@ -80,10 +80,11 @@ public class ForkJoinWorkerThread extends Thread {
      * @throws NullPointerException if pool is null
      */
     protected ForkJoinWorkerThread(ForkJoinPool pool) {
-        // Use a placeholder until a useful name can be set in registerWorker
+        // 可以看到 ForkJoinWorkerThread 在构造时首先调用父类 Thread 的方法，
+        // 然后为工作线程注册pool和workQueue，而workQueue的注册任务由ForkJoinPool.registerWorker来完成。
         super("aForkJoinWorkerThread");
-        this.pool = pool;
-        this.workQueue = pool.registerWorker(this);
+        this.pool = pool; // 可以知道，每一个添加出来的worker都有所属的pool
+        this.workQueue = pool.registerWorker(this); // 可以知道，每一个添加出来的worker都有自己的workerQueue
     }
 
     /**
@@ -150,21 +151,23 @@ public class ForkJoinWorkerThread extends Thread {
      * {@link ForkJoinTask}s.
      */
     public void run() {
-        if (workQueue.array == null) { // only run once
+        // ForkJoinPool中createWorker()中添加worker成功后，调用wt.start()就会运行
+        // ForkJoinPoolThread.run()方法
+        if (workQueue.array == null) { // 创建的worker的初始化的workQueue的array就是null值 -- 因为奇数位上的workQueue都和创建的worker绑定的
             Throwable exception = null;
             try {
-                onStart();
-                pool.runWorker(workQueue);
+                onStart(); // 模板方法
+                pool.runWorker(workQueue); // 交给pool对workQueue
             } catch (Throwable ex) {
                 exception = ex;
             } finally {
                 try {
-                    onTermination(exception);
+                    onTermination(exception); // 模板方法
                 } catch (Throwable ex) {
                     if (exception == null)
                         exception = ex;
                 } finally {
-                    pool.deregisterWorker(this, exception);
+                    pool.deregisterWorker(this, exception); // 注销worker
                 }
             }
         }

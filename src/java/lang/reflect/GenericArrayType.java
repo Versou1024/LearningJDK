@@ -32,6 +32,9 @@ package java.lang.reflect;
  */
 public interface GenericArrayType extends Type {
     /**
+     * 数组的元素为参数化类型、类型变量、
+     */
+    /**
      * Returns a {@code Type} object representing the component type
      * of this array. This method creates the component type of the
      * array.  See the declaration of {@link

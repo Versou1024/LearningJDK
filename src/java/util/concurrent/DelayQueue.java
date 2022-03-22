@@ -40,29 +40,11 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.*;
 
 /**
- * An unbounded {@linkplain BlockingQueue blocking queue} of
- * {@code Delayed} elements, in which an element can only be taken
- * when its delay has expired.  The <em>head</em> of the queue is that
- * {@code Delayed} element whose delay expired furthest in the
- * past.  If no delay has expired there is no head and {@code poll}
- * will return {@code null}. Expiration occurs when an element's
- * {@code getDelay(TimeUnit.NANOSECONDS)} method returns a value less
- * than or equal to zero.  Even though unexpired elements cannot be
- * removed using {@code take} or {@code poll}, they are otherwise
- * treated as normal elements. For example, the {@code size} method
- * returns the count of both expired and unexpired elements.
- * This queue does not permit null elements.
- *
- * <p>This class and its iterator implement all of the
- * <em>optional</em> methods of the {@link Collection} and {@link
- * Iterator} interfaces.  The Iterator provided in method {@link
- * #iterator()} is <em>not</em> guaranteed to traverse the elements of
- * the DelayQueue in any particular order.
- *
- * <p>This class is a member of the
- * <a href="{@docRoot}/../technotes/guides/collections/index.html">
- * Java Collections Framework</a>.
- *
+ * <p>一种延迟元素的无界阻塞队列:队列中的每个元素都有过期时间,只有过期元素才会出列,队列头元素是最快要过期的元素.
+ * <p>如果没有延迟过期，则没有head，poll将返回null。
+ * <p>当元素的getDelay（TimeUnit.NANOSECONDS）方法返回小于或等于零的值时，就会发生过期。
+ * <p>无法使用take/poll删除未过期的元素，它们仍然也会被视为正常元素。例如，size方法返回过期和未过期元素的计数。此队列不允许空元素。
+ * <p>这个类及其迭代器实现了集合和迭代器接口的所有可选方法。方法Iterator（）中提供的迭代器不保证以任何特定顺序遍历DelayQueue的元素。
  * @since 1.5
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
@@ -71,7 +53,7 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
     implements BlockingQueue<E> {
 
     private final transient ReentrantLock lock = new ReentrantLock();
-    private final PriorityQueue<E> q = new PriorityQueue<E>();
+    private final PriorityQueue<E> q = new PriorityQueue<E>(); // 使用优先级队列进行存储 -- 因此你需要先了解PriorityQueue
 
     /**
      * Thread designated to wait for the element at the head of
@@ -96,7 +78,7 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
      * at the head of the queue or a new thread may need to
      * become leader.
      */
-    private final Condition available = lock.newCondition();
+    private final Condition available = lock.newCondition(); // 延迟队列中，没有任何元素过期，那么无法取出元素，只有当元素过期，才会是available
 
     /**
      * Creates a new {@code DelayQueue} that is initially empty.
@@ -123,6 +105,7 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
      * @throws NullPointerException if the specified element is null
      */
     public boolean add(E e) {
+        // 因为无界队列，因此add=offer=put
         return offer(e);
     }
 
@@ -135,9 +118,15 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
      */
     public boolean offer(E e) {
         final ReentrantLock lock = this.lock;
-        lock.lock();
+        lock.lock(); // 加锁，因此即使q是普通的优先级队列，也能够满足线程安全的
         try {
+            // 元素e需要实现Delayed接口的getDelay()，实现compareTo方法()
+            // 1、compareTo方法，用于优先级队列做小顶堆，堆顶就是最先过期的元素
+            // 2、getDelay方法，用于延迟队列中，获取元素的剩余过期时间
             q.offer(e);
+            // 若添加的是队列的第一个元素
+            // 1、设置leader
+            // 2、唤醒所有等待获取的线程，这里不检查元素是否过期可用，而元素是否过期需要被唤醒的线程去做判断
             if (q.peek() == e) {
                 leader = null;
                 available.signal();
@@ -184,6 +173,9 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            // 获取队列头first
+            // 1、若队列头已经过期，返回q.poll()，不阻塞
+            // 2、若队列头没有过期，返回null，不阻塞
             E first = q.peek();
             if (first == null || first.getDelay(NANOSECONDS) > 0)
                 return null;
@@ -204,31 +196,45 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
     public E take() throws InterruptedException {
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
+        /*
+         * 假设一个复杂情况场景：
+         * 有多个元素，其中队头有10s才过期，队头下一个元素11s过期 - 线程有四个为ABCD；
+         * 线程A进入④，进入等待10s
+         * 线程B进入③，进入永久等待
+         * 队头已过期，线程A还没超时唤醒时，线程C进入②，将队头取走，执行⑤，发现队头存在，不做唤醒操作
+         * 线程A超时唤醒，再次进入自旋，若新队头已过期，就进入②，然后依次进入⑥⑤，发现队头不存在，但还有其他元素，执行唤醒，因此线程B被唤醒
+         */
+
         try {
             for (;;) {
                 E first = q.peek();
+                // ① 队头不存在，进入等待，直到唤醒，
                 if (first == null)
                     available.await();
                 else {
                     long delay = first.getDelay(NANOSECONDS);
+                    // ② 队头存在，且已经过期，直接返回q.poll()
                     if (delay <= 0)
                         return q.poll();
-                    first = null; // don't retain ref while waiting
+                    first = null; // 等待期间不需要持有引用
+                    // ③ 队头存在，但没有过期，且已有leader，线程进入永久等待
                     if (leader != null)
                         available.await();
                     else {
+                        // ④ 队头存在，但没有过期，且没有leader，设置leader后线程进入超时等待
                         Thread thisThread = Thread.currentThread();
                         leader = thisThread;
                         try {
-                            available.awaitNanos(delay);
+                            available.awaitNanos(delay); // leader等待时间就是队头的过期时间 -- 过期时间到将自动唤醒
                         } finally {
-                            if (leader == thisThread)
+                            if (leader == thisThread) // ⑥
                                 leader = null;
                         }
                     }
                 }
             }
         } finally {
+            // ⑤ leader已经为空，且队头非空，唤醒其余等待线程
             if (leader == null && q.peek() != null)
                 available.signal();
             lock.unlock();
@@ -249,6 +255,10 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
         long nanos = unit.toNanos(timeout);
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
+        /*
+         * 原理桶poll()方法：
+         * 其中加入过期时间的判断
+         */
         try {
             for (;;) {
                 E first = q.peek();
@@ -310,7 +320,7 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
-            return q.size();
+            return q.size(); // 返回优先级队列的元素，而不是过期的元素数量
         } finally {
             lock.unlock();
         }
@@ -321,7 +331,8 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
      * Used only by drainTo.  Call only when holding lock.
      */
     private E peekExpired() {
-        // assert lock.isHeldByCurrentThread();
+        // 假设 lock.isHeldByCurrentThread();
+        // 队头元素若已过期，则返回对头元素，否则返回null
         E first = q.peek();
         return (first == null || first.getDelay(NANOSECONDS) > 0) ?
             null : first;
@@ -342,8 +353,9 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
         lock.lock();
         try {
             int n = 0;
+            // 只将过期元素清理到另一个集合中
             for (E e; (e = peekExpired()) != null;) {
-                c.add(e);       // In this order, in case add() throws.
+                c.add(e);
                 q.poll();
                 ++n;
             }
@@ -391,7 +403,7 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
-            q.clear();
+            q.clear(); // 清空所有元素，不管是否过期的问题
         } finally {
             lock.unlock();
         }
@@ -404,7 +416,7 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
      * @return {@code Integer.MAX_VALUE}
      */
     public int remainingCapacity() {
-        return Integer.MAX_VALUE;
+        return Integer.MAX_VALUE; // 无界队列，容量无限
     }
 
     /**
@@ -526,8 +538,8 @@ public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
      */
     private class Itr implements Iterator<E> {
         final Object[] array; // Array of all elements
-        int cursor;           // index of next element to return
-        int lastRet;          // index of last element, or -1 if no such
+        int cursor;           // 下一个需要调用next()返回的元素的位置
+        int lastRet;          // 上一次调用next()返回的元素的位置
 
         Itr(Object[] array) {
             lastRet = -1;

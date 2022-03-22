@@ -33,7 +33,7 @@ package java.lang.reflect;
  * @since 1.8
  */
 public interface AnnotatedParameterizedType extends AnnotatedType {
-
+    // 注解修饰的参数化类型
     /**
      * Returns the potentially annotated actual type arguments of this parameterized type.
      *

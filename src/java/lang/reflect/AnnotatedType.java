@@ -34,7 +34,7 @@ package java.lang.reflect;
  * @since 1.8
  */
 public interface AnnotatedType extends AnnotatedElement {
-
+    // AnnotatedType就是Annotation与Type的结合
     /**
      * Returns the underlying type that this annotated type represents.
      *

@@ -398,12 +398,11 @@ public abstract class ClassLoader {
      * @throws  ClassNotFoundException
      *          If the class could not be found
      */
-    protected Class<?> loadClass(String name, boolean resolve)
-        throws ClassNotFoundException
+    protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException
     {
         synchronized (getClassLoadingLock(name)) {
             // First, check if the class has already been loaded
-            Class<?> c = findLoadedClass(name);
+            Class<?> c = findLoadedClass(name); // 从缓存中找是否加载过该类
             if (c == null) {
                 long t0 = System.nanoTime();
                 try {
@@ -416,7 +415,7 @@ public abstract class ClassLoader {
                     // ClassNotFoundException thrown if class not found
                     // from the non-null parent class loader
                 }
-
+                // 父类不负责加载时，由自己的findClass来加载
                 if (c == null) {
                     // If still not found, then invoke findClass in order
                     // to find the class.
@@ -457,10 +456,13 @@ public abstract class ClassLoader {
      * @since  1.7
      */
     protected Object getClassLoadingLock(String className) {
+        // parallelLockMap 并行锁的Map结构
         Object lock = this;
         if (parallelLockMap != null) {
             Object newLock = new Object();
+            // 不存在就更新
             lock = parallelLockMap.putIfAbsent(className, newLock);
+            // map中不存在
             if (lock == null) {
                 lock = newLock;
             }
@@ -1086,12 +1088,17 @@ public abstract class ClassLoader {
      * @since  1.1
      */
     public URL getResource(String name) {
+        // 双亲委派机制查找资源
         URL url;
         if (parent != null) {
+            // 先让父类找
             url = parent.getResource(name);
         } else {
+            // 父类为启动类加载器
             url = getBootstrapResource(name);
         }
+        // 父类没有找到资源
+        // 自己找资源
         if (url == null) {
             url = findResource(name);
         }
@@ -1304,6 +1311,7 @@ public abstract class ClassLoader {
      * @since  1.1
      */
     public InputStream getResourceAsStream(String name) {
+        // 通过getResource获取url，然后openStream（）
         URL url = getResource(name);
         try {
             return url != null ? url.openStream() : null;
@@ -1364,6 +1372,7 @@ public abstract class ClassLoader {
      */
     @CallerSensitive
     public final ClassLoader getParent() {
+        // 获取父类加载器
         if (parent == null)
             return null;
         SecurityManager sm = System.getSecurityManager();

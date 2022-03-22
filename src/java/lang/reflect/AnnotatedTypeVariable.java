@@ -33,7 +33,6 @@ package java.lang.reflect;
  * @since 1.8
  */
 public interface AnnotatedTypeVariable extends AnnotatedType {
-
     /**
      * Returns the potentially annotated bounds of this type variable.
      *

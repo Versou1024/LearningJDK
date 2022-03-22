@@ -58,7 +58,11 @@ package java.util.concurrent;
 public interface Callable<V> {
     /**
      * Computes a result, or throws an exception if unable to do so.
-     *
+     * <p>
+     *     相比于Runnable接口
+     *     1、能够提供返回值
+     *     2、能够抛出异常
+     * </p>
      * @return computed result
      * @throws Exception if unable to compute a result
      */

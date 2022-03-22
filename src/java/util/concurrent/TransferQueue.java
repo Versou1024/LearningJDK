@@ -36,30 +36,17 @@
 package java.util.concurrent;
 
 /**
- * A {@link BlockingQueue} in which producers may wait for consumers
- * to receive elements.  A {@code TransferQueue} may be useful for
- * example in message passing applications in which producers
- * sometimes (using method {@link #transfer}) await receipt of
- * elements by consumers invoking {@code take} or {@code poll}, while
- * at other times enqueue elements (via method {@code put}) without
- * waiting for receipt.
- * {@linkplain #tryTransfer(Object) Non-blocking} and
- * {@linkplain #tryTransfer(Object,long,TimeUnit) time-out} versions of
- * {@code tryTransfer} are also available.
- * A {@code TransferQueue} may also be queried, via {@link
- * #hasWaitingConsumer}, whether there are any threads waiting for
- * items, which is a converse analogy to a {@code peek} operation.
- *
- * <p>Like other blocking queues, a {@code TransferQueue} may be
- * capacity bounded.  If so, an attempted transfer operation may
- * initially block waiting for available space, and/or subsequently
- * block waiting for reception by a consumer.  Note that in a queue
- * with zero capacity, such as {@link SynchronousQueue}, {@code put}
- * and {@code transfer} are effectively synonymous.
- *
- * <p>This interface is a member of the
- * <a href="{@docRoot}/../technotes/guides/collections/index.html">
- * Java Collections Framework</a>.
+ * TransferQueue特点：
+ * <pre>
+ *     1、生产者可以阻塞等待直到消费者接受元素；
+ *     2、队列空时，消费者线程若进入阻塞等待，会创建一个值为null的节点，生产者通过调用transfer()，发现队头有null值的node，会直接把值给消费者线程
+ *     3、有界队列
+ * </pre>
+ * 场景：在消息传递应用程序中，TransferQueue可能很有用。在消息传递应用程序中，生产者有时（使用方法transfer）等待消费者调用take或poll来接收元素，
+ * 而有时（通过方法put）将元素排队，而不等待消费者来接收。
+ * <p>
+ *     tryTransfer的还有非阻塞和超时版本也可用。TransferQueue还可以通过hasWaitingConsumer查询是否有线程等待条目，这与peek操作相反。
+ * </p>
  *
  * @since 1.7
  * @author Doug Lea

@@ -105,153 +105,70 @@ import java.util.concurrent.locks.LockSupport;
 public class Exchanger<V> {
 
     /*
-     * Overview: The core algorithm is, for an exchange "slot",
-     * and a participant (caller) with an item:
-     *
+     * 概述:核心算法是,一个交换槽位和另一个带有item的partner线程.
      * for (;;) {
-     *   if (slot is empty) {                       // offer
+     *   if (slot is empty) { //槽位为空,则放入item到节点   // offer
      *     place item in a Node;
-     *     if (can CAS slot from empty to node) {
-     *       wait for release;
-     *       return matching item in node;
+     *     if (can CAS slot from empty to node) {  //CAS操作将节点放入空槽位
+     *       wait for release;//等待释放槽位
+     *       return matching item in node;//返回匹配节点的item
      *     }
      *   }
-     *   else if (can CAS slot from node to empty) { // release
-     *     get the item in node;
-     *     set matching item in node;
-     *     release waiting thread;
+     *   else if (can CAS slot from node to empty) { //槽位不为空,CAS操作将槽位节点移除 release
+     *     get the item in node; //获取节点的item
+     *     set matching item in node; //设定节点中匹配的内容
+     *     release waiting thread; //释放等待线程
      *   }
-     *   // else retry on CAS failure
+     *   // CAS失败则继续循环操作
      * }
      *
-     * This is among the simplest forms of a "dual data structure" --
-     * see Scott and Scherer's DISC 04 paper and
-     * http://www.cs.rochester.edu/research/synchronization/pseudocode/duals.html
+     * 这是“双重数据结构”的最简单形式之一
      *
-     * This works great in principle. But in practice, like many
-     * algorithms centered on atomic updates to a single location, it
-     * scales horribly when there are more than a few participants
-     * using the same Exchanger. So the implementation instead uses a
-     * form of elimination arena, that spreads out this contention by
-     * arranging that some threads typically use different slots,
-     * while still ensuring that eventually, any two parties will be
-     * able to exchange items. That is, we cannot completely partition
-     * across threads, but instead give threads arena indices that
-     * will on average grow under contention and shrink under lack of
-     * contention. We approach this by defining the Nodes that we need
-     * anyway as ThreadLocals, and include in them per-thread index
-     * and related bookkeeping state. (We can safely reuse per-thread
-     * nodes rather than creating them fresh each time because slots
-     * alternate between pointing to a node vs null, so cannot
-     * encounter ABA problems. However, we do need some care in
-     * resetting them between uses.)
+     * 上述工作机制原则上可以工作的很好,但实际上，像许多在单个位置上进行原子更新的算法一样，当使用同一个Exchanger的线程不止一个时，
+     * 则存在严重的伸缩性问题.因此我们的实现采用了一种消除竞争的形式,它通过安排一些线程使用不同的槽位来分散竞争压力,这样做最终依旧能
+     * 保证两个匹配的线程可以交换item.
      *
-     * Implementing an effective arena requires allocating a bunch of
-     * space, so we only do so upon detecting contention (except on
-     * uniprocessors, where they wouldn't help, so aren't used).
-     * Otherwise, exchanges use the single-slot slotExchange method.
-     * On contention, not only must the slots be in different
-     * locations, but the locations must not encounter memory
-     * contention due to being on the same cache line (or more
-     * generally, the same coherence unit).  Because, as of this
-     * writing, there is no way to determine cacheline size, we define
-     * a value that is enough for common platforms.  Additionally,
-     * extra care elsewhere is taken to avoid other false/unintended
-     * sharing and to enhance locality, including adding padding (via
-     * sun.misc.Contended) to Nodes, embedding "bound" as an Exchanger
-     * field, and reworking some park/unpark mechanics compared to
-     * LockSupport versions.
+     * 一个有效的竞争实现需要分配大量的空间(因为需要分配很多slot),因此只有在检测到竞争时,我们才会这么做(因为单cpu时,分配很多slot没有什么用,
+     * 所以也不会这么做).否则,exchanges就会使用单槽位的槽位交换方法.在竞争中,不仅仅槽位应该在不同的位置,而且没有slot在相同的缓存行上(更一般的讲,
+     * 就是相同的相干单元),因此不会出现内存竞争.因为在撰写本文时，无法确定缓存行大小，因此我们定义了一个对于普通平台来说都足够的值.
+     * 另外，在别处进行额外的保护以避免其他错误/非预期的共享，并增强局部性，包括对Node使用边距（通过sun.misc.Contended）;嵌入“bound”作
+     * 为Exchange的字段;以及使用区别于LockSupport重排一些Park/unPark的机制。
      *
-     * The arena starts out with only one used slot. We expand the
-     * effective arena size by tracking collisions; i.e., failed CASes
-     * while trying to exchange. By nature of the above algorithm, the
-     * only kinds of collision that reliably indicate contention are
-     * when two attempted releases collide -- one of two attempted
-     * offers can legitimately fail to CAS without indicating
-     * contention by more than one other thread. (Note: it is possible
-     * but not worthwhile to more precisely detect contention by
-     * reading slot values after CAS failures.)  When a thread has
-     * collided at each slot within the current arena bound, it tries
-     * to expand the arena size by one. We track collisions within
-     * bounds by using a version (sequence) number on the "bound"
-     * field, and conservatively reset collision counts when a
-     * participant notices that bound has been updated (in either
-     * direction).
+     * 开始时,只有一个槽位.我们通过跟踪冲突(exchange时失败的CAS)来扩展arena的大小;
+     * 根据上述算法的性质，仅有的几种类型的冲突已经明确暗示了:竞争是两个线程尝试释放Node的冲突--一个线程的offer发生CAS操作失败是合法的,
+     * 但是这不意味着2个及以上的线程同时发生CAS失败也是合理的(注意:在CAS操作失败后,通过读取槽位的值来检查冲突是可能的,但是这样做是不值得提倡
+     * 的).在当前arena限制内,如果一个线程在每一个槽位都发生了冲突,此时会扩展arena大小.通过使用bound字段的版本号,在一定范围内进行冲突的跟踪,
+     * 当线程发现界限值bound值已经被更改,则会保守的重置冲突个数.
      *
-     * The effective arena size is reduced (when there is more than
-     * one slot) by giving up on waiting after a while and trying to
-     * decrement the arena size on expiration. The value of "a while"
-     * is an empirical matter.  We implement by piggybacking on the
-     * use of spin->yield->block that is essential for reasonable
-     * waiting performance anyway -- in a busy exchanger, offers are
-     * usually almost immediately released, in which case context
-     * switching on multiprocessors is extremely slow/wasteful.  Arena
-     * waits just omit the blocking part, and instead cancel. The spin
-     * count is empirically chosen to be a value that avoids blocking
-     * 99% of the time under maximum sustained exchange rates on a
-     * range of test machines. Spins and yields entail some limited
-     * randomness (using a cheap xorshift) to avoid regular patterns
-     * that can induce unproductive grow/shrink cycles. (Using a
-     * pseudorandom also helps regularize spin cycle duration by
-     * making branches unpredictable.)  Also, during an offer, a
-     * waiter can "know" that it will be released when its slot has
-     * changed, but cannot yet proceed until match is set.  In the
-     * mean time it cannot cancel the offer, so instead spins/yields.
-     * Note: It is possible to avoid this secondary check by changing
-     * the linearization point to be a CAS of the match field (as done
-     * in one case in the Scott & Scherer DISC paper), which also
-     * increases asynchrony a bit, at the expense of poorer collision
-     * detection and inability to always reuse per-thread nodes. So
-     * the current scheme is typically a better tradeoff.
+     * 通过放弃等待的一段时间,减少arena的有效规模(如果此时槽位个数>1).
+     * “一段时间”的值应该定为多少,这是一个经验问题。我们利用spin->yield->block来实现一段合理的等待时间--在一个繁忙的exchanger中,资源获取后
+     * 很快就会释放,在这种情况下,多处理器的上下文切换会非常慢,而且也造成了资源浪费.
+     * arena等待只是省略阻塞部分，而不是取消。根据经验,自旋数被设定为:在一系列测试机器的最大持续交换率下,避免了99%的阻塞时间.
+     * spin和yield都需要一些有限定的随机性(使用廉价的异或移位操作xorshift)以避免严格模式下会引起没必要的grow/shrink环。
+     * (使用伪随机还有助于通过使分支不可预知来调整旋转周期的持续时间。)当然,在offer的过程中,等待线程能够"知道"当槽位被改变时,其它线程将对此槽位
+     * 执行release操作,但是在匹配成功前,它依旧不能继续往下执行.同时,它也不能撤销offer操作,而只能是spin/yield操作.
+     * 注意:通过将线性化点更改为匹配字段的CAS（如在Scott＆Scherer DISC论文中的一种情况中所做的），可以避免二次检查,这也会增加异步性,但代价是
+     * 冲突检测会比较差且无法总是重用每个线程的节点.因此此方式是一种折中方案.
      *
-     * On collisions, indices traverse the arena cyclically in reverse
-     * order, restarting at the maximum index (which will tend to be
-     * sparsest) when bounds change. (On expirations, indices instead
-     * are halved until reaching 0.) It is possible (and has been
-     * tried) to use randomized, prime-value-stepped, or double-hash
-     * style traversal instead of simple cyclic traversal to reduce
-     * bunching.  But empirically, whatever benefits these may have
-     * don't overcome their added overhead: We are managing operations
-     * that occur very quickly unless there is sustained contention,
-     * so simpler/faster control policies work better than more
-     * accurate but slower ones.
+     * 发生冲突时,索引会按逆序循环遍历arena,当界限发生改变时,以最大索引(此位置Node最稀疏)重新开始.(过期后,索引减半直到为0为止)
+     * 通过使用随机数,素数步长或双重哈希式遍历，而不是简单的循环遍历来减少聚集是可能的(且已经做过尝试).
+     * 但是从经验来说,这些可能带来的好处无法克服其额外开销:除非存在持续的竞争,否则我们目前的管理操作运行都很快,所以更简单/更快的控制策略比
+     * 更准确但速度更慢的策略运作得更好。
      *
-     * Because we use expiration for arena size control, we cannot
-     * throw TimeoutExceptions in the timed version of the public
-     * exchange method until the arena size has shrunken to zero (or
-     * the arena isn't enabled). This may delay response to timeout
-     * but is still within spec.
+     * 因为我们使用过期来对arena的规模进行控制,因此在公有的exchange时间版本方法中不能抛出超时异常直到arena的规模大小缩为0(或者arena不能被
+     * 使用).这可能在超时上延长响应但是这种延迟是可以接受的.
      *
-     * Essentially all of the implementation is in methods
-     * slotExchange and arenaExchange. These have similar overall
-     * structure, but differ in too many details to combine. The
-     * slotExchange method uses the single Exchanger field "slot"
-     * rather than arena array elements. However, it still needs
-     * minimal collision detection to trigger arena construction.
-     * (The messiest part is making sure interrupt status and
-     * InterruptedExceptions come out right during transitions when
-     * both methods may be called. This is done by using null return
-     * as a sentinel to recheck interrupt status.)
+     * 基本上所有的实现都在方法slotExchange和arenaExchange中。
+     * 这些方法的宏观架构是类似的,但在组成的细节上有很多不同.slotExchange方法使用了单一的Exchanger类型字段slot,而arena使用了一个数组.
+     * 然而,它仍旧需要最少的冲突检测来触发arena的构建.(在这两个方法被调用时,最麻烦的部分就是确定中断状态以及转换期间正常出现的中断异常)
      *
-     * As is too common in this sort of code, methods are monolithic
-     * because most of the logic relies on reads of fields that are
-     * maintained as local variables so can't be nicely factored --
-     * mainly, here, bulky spin->yield->block/cancel code), and
-     * heavily dependent on intrinsics (Unsafe) to use inlined
-     * embedded CAS and related memory access operations (that tend
-     * not to be as readily inlined by dynamic compilers when they are
-     * hidden behind other methods that would more nicely name and
-     * encapsulate the intended effects). This includes the use of
-     * putOrderedX to clear fields of the per-thread Nodes between
-     * uses. Note that field Node.item is not declared as volatile
-     * even though it is read by releasing threads, because they only
-     * do so after CAS operations that must precede access, and all
-     * uses by the owning thread are otherwise acceptably ordered by
-     * other operations. (Because the actual points of atomicity are
-     * slot CASes, it would also be legal for the write to Node.match
-     * in a release to be weaker than a full volatile write. However,
-     * this is not done because it could allow further postponement of
-     * the write, delaying progress.)
+     * 这种类型的代码中,这种方法太常见了,因为大多数逻辑都依赖于作为局部变量维护的字段来读取,所以不能很好的对方法进行分解--主要表现在这里:体积庞大
+     * 的spin-yield-block/cancel代码,以及严重依赖于内部函数(Unsafe)来使用内联嵌入式CAS和相关的内存访问操作(当它们被隐藏在命名友好且封装了
+     * 预期效果的方法后面时,动态编译器往往不会将其内联).
+     * 这包括使用putOrderedX来清除每个线程节点之间使用的字段.
+     * 请注意，即使通过线程的release操作来读取字段Node.item，也并未将其声明为volatile类型,因为读取操作只会在CAS操作完成之后才发生,并且
+     * 其它持有此字段的线程对其的使用都已经由其它操作确定了顺序.(因为实际的原子是对槽位的CAS操作,因此在release中对Node.match的写操作比完全
+     * volatile写要弱是合法的.然而,并没有这样做是因为它可以允许进一步推迟写，延迟进度。)
      */
 
     /**
@@ -311,19 +228,28 @@ public class Exchanger<V> {
      * contention.
      */
     @sun.misc.Contended static final class Node {
-        int index;              // Arena index
-        int bound;              // Last recorded value of Exchanger.bound
-        int collides;           // Number of CAS failures at current bound
-        int hash;               // Pseudo-random for spins
-        Object item;            // This thread's current item
-        volatile Object match;  // Item provided by releasing thread
-        volatile Thread parked; // Set to this thread when parked, else null
+        int index;              // 在竞争区中的arena的下标；
+        int bound;              // 上一次记录的Exchanger.bound；
+        int collides;           // 在当前bound下CAS失败的次数；
+        int hash;               // 伪随机数，用于自旋；
+        Object item;            // 这个线程的当前项，也就是需要交换的数据；
+        volatile Object match;  // 做releasing操作的线程传递的项；
+        volatile Thread parked; // 挂起时设置线程值，其他情况下为null，用来被其他线程唤醒时调用
     }
 
     /** The corresponding thread local class */
     static final class Participant extends ThreadLocal<Node> {
+        // Participant参加者，继承TheadLocal，重写initialValue()的方法，初始化一个空的Node
         public Node initialValue() { return new Node(); }
     }
+    /*
+     * slot为单个槽，arena为数组槽。他们都是Node类型。在这里可能会感觉到疑惑，slot作为Exchanger交换数据的场景，应该只需要一个就可以了啊？
+     * 为何还多了一个 Participant 和数组类型的arena呢？一个slot交换场所原则上来说应该是可以的，但实际情况却不是如此，多个参与者使用同一个交换场所时，
+     * 会存在严重伸缩性问题。既然单个交换场所存在问题，那么我们就安排多个，也就是数组arena。通过数组arena来安排不同的线程使用不同的slot来
+     * 降低竞争问题，并且可以保证最终一定会成对交换数据。但是Exchanger不是一来就会生成arena数组来降低竞争，只有当产生竞争是才会生成arena数组。
+     * 那么怎么将Node与当前线程绑定呢？Participant ，Participant 的作用就是为每个线程保留唯一的一个Node节点，它继承ThreadLocal，同时在Node节点
+     * 中记录在arena中的下标index。
+     */
 
     /**
      * Per-thread state
@@ -334,7 +260,7 @@ public class Exchanger<V> {
      * Elimination array; null until enabled (within slotExchange).
      * Element accesses use emulation of volatile gets and CAS.
      */
-    private volatile Node[] arena;
+    private volatile Node[] arena; // arena初始化后就不会再扩容或者缩容，而是通过bound控制大小，而slot非空时，arena就表示无法使用
 
     /**
      * Slot used until contention detected.
@@ -347,7 +273,7 @@ public class Exchanger<V> {
      * update from 0 to SEQ is used to ensure that the arena array is
      * constructed only once.
      */
-    private volatile int bound;
+    private volatile int bound; // 最大有效arena位置的索引，或用高位的序号表示，在每次更新时递增。从0到SEQ的初始更新用于确保竞技场阵列只构建一次。
 
     /**
      * Exchange function when arenas enabled. See above for explanation.
@@ -360,23 +286,34 @@ public class Exchanger<V> {
      */
     private final Object arenaExchange(Object item, boolean timed, long ns) {
         Node[] a = arena;
-        Node p = participant.get();
-        for (int i = p.index;;) {                      // access slot at i
-            int b, m, c; long j;                       // j is raw array offset
+        Node p = participant.get(); // 获取当前线程的 new Node()，初始化的index默认为0
+        // p的index值初始化为0，下面的i表示索引，j表示在slot槽中的物理位置
+        for (int i = p.index;;) {
+            int b, m, c; long j;
+            // 1、获取当前线程需要完成交易在arena中slot上的Node
             Node q = (Node)U.getObjectVolatile(a, j = (i << ASHIFT) + ABASE);
+            // 2、q != null表示arena[i]上已经有交易者正在等待，那么当前线程会对方交换数据，并唤醒对方
             if (q != null && U.compareAndSwapObject(a, j, q, null)) {
-                Object v = q.item;                     // release
+                Object v = q.item;
                 q.match = item;
                 Thread w = q.parked;
                 if (w != null)
                     U.unpark(w);
                 return v;
             }
-            else if (i <= (m = (b = bound) & MMASK) && q == null) {
+            // 3、q=null，对应的slot上没有交易者
+             else if (i <= (m = (b = bound) & MMASK) && q == null) {
                 p.item = item;                         // offer
+                // 将p设置到arena[i]上
                 if (U.compareAndSwapObject(a, j, null, p)) {
                     long end = (timed && m == 0) ? System.nanoTime() + ns : 0L;
                     Thread t = Thread.currentThread(); // wait
+                    // 进入经典的spin+block模式
+                    // 1、如果match非空，即匹配成功，即可退出返回match的值
+                    // 2、否则，进入SPINS+随机自旋次数，做Thead.yield()操作，期间不断监测match值，做第一步操作
+                    // 3、自旋次数为0时，若发现arena[i]上非当前的p，那就重新自旋
+                    // 4、线程未中断，且m=0，且未超时或者非限时版，那就进入主赛或者限时阻塞
+                    // 5、线程中断，或m不等于0，或超时：超时返回TIMED_OUT，m不等于0或中断返回null
                     for (int h = p.hash, spins = SPINS;;) {
                         Object v = p.match;
                         if (v != null) {
@@ -385,28 +322,29 @@ public class Exchanger<V> {
                             p.hash = h;
                             return v;
                         }
+                        // 随机自旋
                         else if (spins > 0) {
-                            h ^= h << 1; h ^= h >>> 3; h ^= h << 10; // xorshift
+                            h ^= h << 1;
+                            h ^= h >>> 3;
+                            h ^= h << 10; // xorshift
                             if (h == 0)                // initialize hash
                                 h = SPINS | (int)t.getId();
                             else if (h < 0 &&          // approx 50% true
                                      (--spins & ((SPINS >>> 1) - 1)) == 0)
                                 Thread.yield();        // two yields per wait
                         }
+                        // slot槽位非当前节点p
                         else if (U.getObjectVolatile(a, j) != p)
                             spins = SPINS;       // releaser hasn't set match yet
-                        else if (!t.isInterrupted() && m == 0 &&
-                                 (!timed ||
-                                  (ns = end - System.nanoTime()) > 0L)) {
+                        else if (!t.isInterrupted() && m == 0 && (!timed || (ns = end - System.nanoTime()) > 0L)) {
                             U.putObject(t, BLOCKER, this); // emulate LockSupport
                             p.parked = t;              // minimize window
                             if (U.getObjectVolatile(a, j) == p)
-                                U.park(false, ns);
+                                U.park(false, ns); // 阻塞起来
                             p.parked = null;
                             U.putObject(t, BLOCKER, null);
                         }
-                        else if (U.getObjectVolatile(a, j) == p &&
-                                 U.compareAndSwapObject(a, j, p, null)) {
+                        else if (U.getObjectVolatile(a, j) == p && U.compareAndSwapObject(a, j, p, null)) {
                             if (m != 0)                // try to shrink
                                 U.compareAndSwapInt(this, BOUND, b, b + SEQ - 1);
                             p.item = null;
@@ -424,7 +362,7 @@ public class Exchanger<V> {
                     p.item = null;                     // clear offer
             }
             else {
-                if (p.bound != b) {                    // stale; reset
+                if (p.bound != b) {                    // bound过期; reset
                     p.bound = b;
                     p.collides = 0;
                     i = (i != m || m == 0) ? m : m - 1;
@@ -452,28 +390,42 @@ public class Exchanger<V> {
      * TIMED_OUT if timed and timed out
      */
     private final Object slotExchange(Object item, boolean timed, long ns) {
-        Node p = participant.get();
+        // 获取当前线程的节点 p
+        Node p = participant.get(); // 注意：participant有初始化的Node
+        // 当前线程
         Thread t = Thread.currentThread();
+        // 线程中断，直接返回
         if (t.isInterrupted()) // preserve interrupt status so caller can recheck
             return null;
-
+        // 自旋
         for (Node q;;) {
+            // 尝试CAS替换 -- slot非空，表示对方先使用exchange()将数据写入slot中
             if ((q = slot) != null) {
                 if (U.compareAndSwapObject(this, SLOT, q, null)) {
-                    Object v = q.item;
-                    q.match = item;
+                    Object v = q.item;  // 当前线程的项，也就是交换的数据 -- 把对方的item拿出来
+                    q.match = item;     // 做releasing操作的线程传递的项 -- 把我的item给对方
                     Thread w = q.parked;
                     if (w != null)
-                        U.unpark(w);
-                    return v;
+                        U.unpark(w); // 匹配成功，将对方唤醒
+                    return v; // 返回获取到的值
                 }
-                // create arena on contention, but continue until slot null
-                if (NCPU > 1 && bound == 0 &&
-                    U.compareAndSwapInt(this, BOUND, 0, SEQ))
-                    arena = new Node[(FULL + 2) << ASHIFT];
+                // 执行到这说明：CAS竞争失败了，表示slot中数据已经被其他线程交换走啦，说明有竞争 -- 需要创建arena
+                // 条件：多核CPU、bound界限为0，尝试CAS更新BOUND
+                if (NCPU > 1 && bound == 0 && U.compareAndSwapInt(this, BOUND, 0, SEQ))
+                    arena = new Node[(FULL + 2) << ASHIFT]; // 假如我的机器NCPU = 8 ，则得到的是768大小的arena数组。
             }
+
+            // 执行到在说明：slot为空，有两种情况
+            // 1、当前线程时第一个到达的，所以slot就是null
+            // 2、多个线程同时到达争夺slot，失败的线程就会发现slot为null
+
+            // 情况2：如果 arena != null，表示不需要在slot上交换，直接返回，进入arenaExchange()逻辑处理
             else if (arena != null)
                 return null; // caller must reroute to arenaExchange
+
+
+            // 情况1：执行到这说明：slot为空，arena也为空，证明该线程是最先使用exchange()交换数据的
+            // 步骤：将item保存到node上，CAS更新slot为p
             else {
                 p.item = item;
                 if (U.compareAndSwapObject(this, SLOT, null, p))
@@ -482,30 +434,53 @@ public class Exchanger<V> {
             }
         }
 
-        // await release
+        // 执行到这说明：slot为空，arena也为空，证明该线程是最先使用exchange()交换数据的，需要进入spin+block
+
+        /*
+         * 等待 release
+         * 进入spin+block模式
+         */
         int h = p.hash;
         long end = timed ? System.nanoTime() + ns : 0L;
         int spins = (NCPU > 1) ? SPINS : 1;
         Object v;
+        // spin + blcok模式 -- 直到匹配交换数据成功
+        // 在自旋+阻塞模式中，首先取得结束时间和自旋次数。
+        // 如果match(做releasing操作的线程传递的项)为null，其首先尝试spins+随机次自旋（改自旋使用当前节点中的hash，并改变之）和退让。
+        // 当自旋数为0后，假如slot发生了改变（slot != p）则重置自旋数并重试。
+        // 否则假如：当前未中断&arena为null&（当前不是限时版本或者限时版本+当前时间未结束）：阻塞或者限时阻塞。
+        // 假如：当前中断或者arena不为null或者当前为限时版本+时间已经结束：
+        //      不限时版本：置v为null；
+        //      限时版本：如果时间结束以及未中断则TIMED_OUT；
+        //      否则给出null（原因是探测到arena非空或者当前线程中断）。
         while ((v = p.match) == null) {
+            // 1、尝试spins+随机次自旋
             if (spins > 0) {
-                h ^= h << 1; h ^= h >>> 3; h ^= h << 10;
+                h ^= h << 1;
+                h ^= h >>> 3;
+                h ^= h << 10;
                 if (h == 0)
                     h = SPINS | (int)t.getId();
                 else if (h < 0 && (--spins & ((SPINS >>> 1) - 1)) == 0)
                     Thread.yield();
             }
+            // 2、执行到此：自旋次数为0
+            // slot已改变，重新尝试自旋
             else if (slot != p)
                 spins = SPINS;
-            else if (!t.isInterrupted() && arena == null &&
-                     (!timed || (ns = end - System.nanoTime()) > 0L)) {
+            // 3、线程未中断，且arena为null，且(为永久等待timed=false或者还未超时timed=true) -- 进入永久阻塞或限时阻塞
+            else if (!t.isInterrupted() && arena == null && (!timed || (ns = end - System.nanoTime()) > 0L)) {
                 U.putObject(t, BLOCKER, this);
                 p.parked = t;
                 if (slot == p)
                     U.park(false, ns);
-                p.parked = null;
-                U.putObject(t, BLOCKER, null);
+                p.parked = null; // 唤醒，清空node中的parked
+                U.putObject(t, BLOCKER, null); // 唤醒，清空线程的BLOCKER监视器
             }
+            // 执行到此：线程可能中断，或者arena不为null，或者超时
+            // 步骤：
+            // 1、更新SLOT为null，表示不使用SLOT啦，改为数组槽arena
+            // 2、若已经超时且非中断，返回TIMED_OUT；若已经超时且中断，返回null
             else if (U.compareAndSwapObject(this, SLOT, p, null)) {
                 v = timed && ns <= 0L && !t.isInterrupted() ? TIMED_OUT : null;
                 break;
@@ -560,12 +535,18 @@ public class Exchanger<V> {
     @SuppressWarnings("unchecked")
     public V exchange(V x) throws InterruptedException {
         Object v;
-        Object item = (x == null) ? NULL_ITEM : x; // translate null args
-        if ((arena != null ||
-             (v = slotExchange(item, false, 0L)) == null) &&
-            ((Thread.interrupted() || // disambiguates null return
-              (v = arenaExchange(item, false, 0L)) == null)))
+        Object item = (x == null) ? NULL_ITEM : x; // null有特殊的作用，因此对于交换的的item为null则使用NULL_ITEM替换
+        // 1、arena为数组槽如果为null，则说明只有一个slot，因此执行slotExchange()方法，
+        //          slotExchange()执行结果非null,即交换成功，直接就结束；
+        //          slotExchange()执行结果为null,即交换失败，升级为使用arenaExchange()进行交换数据
+        // 2、arena为数组槽如果已经不为null，则直接调用arenaExchange();
+        //
+        // 结论：如果slotExchange(Object item, boolean timed, long ns)方法执行失败了就执行arenaExchange(Object item, boolean timed, long ns)方法，最后返回结果V。
+        if ((arena != null || (v = slotExchange(item, false, 0L)) == null) &&
+            ((Thread.interrupted() || (v = arenaExchange(item, false, 0L)) == null)))
             throw new InterruptedException();
+
+        // 3、返回交换的结果
         return (v == NULL_ITEM) ? null : (V)v;
     }
 

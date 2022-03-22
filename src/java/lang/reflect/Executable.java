@@ -42,6 +42,8 @@ import sun.reflect.generics.repository.ConstructorRepository;
  */
 public abstract class Executable extends AccessibleObject
     implements Member, GenericDeclaration {
+
+    // 用于给构造器Constructor、方法Method定义额外的需要的方法
     /*
      * Only grant package-visibility to the constructor.
      */

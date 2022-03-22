@@ -60,6 +60,7 @@ package java.util;
  * @since   JDK1.0
  */
 public class Observable {
+    // 用于实现观察者模式的
     private boolean changed = false;
     private Vector<Observer> obs;
 

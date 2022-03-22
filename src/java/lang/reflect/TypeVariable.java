@@ -50,6 +50,9 @@ package java.lang.reflect;
  */
 public interface TypeVariable<D extends GenericDeclaration> extends Type, AnnotatedElement {
     /**
+     * 类型变量 即 T 、 V
+     */
+    /**
      * Returns an array of {@code Type} objects representing the
      * upper bound(s) of this type variable.  Note that if no upper bound is
      * explicitly declared, the upper bound is {@code Object}.

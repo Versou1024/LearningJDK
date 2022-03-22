@@ -451,30 +451,11 @@ public final class Class<T> implements java.io.Serializable,
 
 
     /**
-     * Determines if the specified {@code Object} is assignment-compatible
-     * with the object represented by this {@code Class}.  This method is
-     * the dynamic equivalent of the Java language {@code instanceof}
-     * operator. The method returns {@code true} if the specified
-     * {@code Object} argument is non-null and can be cast to the
-     * reference type represented by this {@code Class} object without
-     * raising a {@code ClassCastException.} It returns {@code false}
-     * otherwise.
+     * 确定指定的对象是否与此类表示的对象兼容。这个方法是Java语言instanceof操作符的动态等价物。
+     * 如果指定的对象参数为非null，并且可以强制转换为此类对象表示的引用类型，
+     * 而不引发ClassCastException，则该方法将返回true。否则返回false。
      *
-     * <p> Specifically, if this {@code Class} object represents a
-     * declared class, this method returns {@code true} if the specified
-     * {@code Object} argument is an instance of the represented class (or
-     * of any of its subclasses); it returns {@code false} otherwise. If
-     * this {@code Class} object represents an array class, this method
-     * returns {@code true} if the specified {@code Object} argument
-     * can be converted to an object of the array class by an identity
-     * conversion or by a widening reference conversion; it returns
-     * {@code false} otherwise. If this {@code Class} object
-     * represents an interface, this method returns {@code true} if the
-     * class or any superclass of the specified {@code Object} argument
-     * implements this interface; it returns {@code false} otherwise. If
-     * this {@code Class} object represents a primitive type, this method
-     * returns {@code false}.
-     *
+     * 基本类型将直接返回false
      * @param   obj the object to check
      * @return  true if {@code obj} is an instance of this class
      *
@@ -3365,6 +3346,7 @@ public final class Class<T> implements java.io.Serializable,
      */
     @SuppressWarnings("unchecked")
     public T cast(Object obj) {
+        // 将obj转换为当前Class的对象
         if (obj != null && !isInstance(obj))
             throw new ClassCastException(cannotCastMsg(obj));
         return (T) obj;

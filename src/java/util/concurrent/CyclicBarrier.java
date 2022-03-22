@@ -149,7 +149,14 @@ public class CyclicBarrier {
      * but no subsequent reset.
      */
     private static class Generation {
-        boolean broken = false;
+        /*
+        CyclicBarrier 支持循环使用的；
+        屏障的每次使用都表示为一个Generation实例。
+        每当屏障tripped或reset时，Generation就会发生变化。
+        由于锁可能被分配给等待线程的方式是不确定，使用该屏障的线程可能会产生很多Generation，但一次只能有一个Generation处于active状态（count适用的线程）
+        其余的线程要么中断，要么跳闸。如果发生中断但没有后续重置，则不需要活跃代。
+        */
+        boolean broken = false; // 表示当前屏障是否被损坏。
     }
 
     /** The lock for guarding barrier entry */
@@ -157,7 +164,7 @@ public class CyclicBarrier {
     /** Condition to wait on until tripped */
     private final Condition trip = lock.newCondition();
     /** The number of parties */
-    private final int parties;
+    private final int parties; // parties 的数量
     /* The command to run when tripped */
     private final Runnable barrierCommand;
     /** The current generation */
@@ -168,7 +175,7 @@ public class CyclicBarrier {
      * on each generation.  It is reset to parties on each new
      * generation or when broken.
      */
-    private int count;
+    private int count; // 仍在等待的部分的数量。在每一代中，从参与方倒计时到0。每到新一代，或者当它被破坏时，它都会被重新设置为parties。
 
     /**
      * Updates state on barrier trip and wakes up everyone.
@@ -187,6 +194,9 @@ public class CyclicBarrier {
      * Called only while holding lock.
      */
     private void breakBarrier() {
+        /*
+        将当前的barrier generation 生成设置为已打破，并唤醒所有人。只有在拿着锁的时候才打电话。
+         */
         generation.broken = true;
         count = parties;
         trip.signalAll();
@@ -195,32 +205,30 @@ public class CyclicBarrier {
     /**
      * Main barrier code, covering the various policies.
      */
-    private int dowait(boolean timed, long nanos)
-        throws InterruptedException, BrokenBarrierException,
-               TimeoutException {
+    private int dowait(boolean timed, long nanos) throws InterruptedException, BrokenBarrierException, TimeoutException {
         final ReentrantLock lock = this.lock;
-        lock.lock();
+        lock.lock(); // 加锁 -- 该方法每次只有一个线程进入，表明一个团中所有的成员被唤醒的时候不是同时都被唤醒，而是唤醒后依次尝试获取锁重新执行
         try {
-            final Generation g = generation;
+            final Generation g = generation; // 获取 CyclicBarrier 的 当前代 generation，如果是同一个拼团的成员，那么 generation 应该是同一个值，其中的broker用来告诉团员拼团是否成功
 
-            if (g.broken)
+            if (g.broken) // 如果获取 generation 实例的broker已经是true，无须继续运行，直接抛出 BrokenBarrierException
                 throw new BrokenBarrierException();
 
-            if (Thread.interrupted()) {
-                breakBarrier();
+            if (Thread.interrupted()) { // 如果当前线程被中断，抛出中断异常
+                breakBarrier(); // 操作：当前代generation的broker设为true，唤醒组内的其余线程，初始化count为parties
                 throw new InterruptedException();
             }
 
-            int index = --count;
-            if (index == 0) {  // tripped
+            int index = --count; // 组内成员+1，count计数器的值减去1
+            if (index == 0) {  // tripped，最后一个加入组的线程使得index=0时，表示可以开始启动所有组内阻塞的线程
                 boolean ranAction = false;
                 try {
                     final Runnable command = barrierCommand;
                     if (command != null)
-                        command.run();
+                        command.run(); // 由组内最后一个加入的执行command的运行
                     ranAction = true;
-                    nextGeneration();
-                    return 0;
+                    nextGeneration(); // 完成：唤醒组内所有线程，count初始化parties，generation初始化为新的
+                    return 0; // 执行成功
                 } finally {
                     if (!ranAction)
                         breakBarrier();
@@ -228,29 +236,46 @@ public class CyclicBarrier {
             }
 
             // loop until tripped, broken, interrupted, or timed out
-            for (;;) {
+            for (;;) { // 死循环 -- 切记
                 try {
                     if (!timed)
-                        trip.await();
+                        trip.await(); // 不需要超时等待阻塞，被signal()唤醒后，不会立即执行，而是在AQS中继续阻塞等待，直到有资格获取到锁
                     else if (nanos > 0L)
-                        nanos = trip.awaitNanos(nanos);
+                        nanos = trip.awaitNanos(nanos); // 需要超时等待阻塞
+
+                    // 当方法执行到此处时，当前线程会释放对应的锁，因此下一个调用CyclicBarrier.await()的线程才可以进入此方法体中
                 } catch (InterruptedException ie) {
+                    /*
+                     组内任何线程在等待期间，如果有出现主动执行中断的行为，将捕获到InterruptedException异常
+                     */
                     if (g == generation && ! g.broken) {
-                        breakBarrier();
+                        //如果仍在拼团期间，即g=generation[表示当前拼团未结束]，同时 g.broken 为false表示，当前拼团也没有失败
+                        breakBarrier(); // 由于当前线程在阻塞等待期间被中断，因此需要结束整个拼团中的线程
                         throw ie;
                     } else {
                         // We're about to finish waiting even if we had not
                         // been interrupted, so this interrupt is deemed to
                         // "belong" to subsequent execution.
+                        /*
+                        即使我们没有被打断，我们也将完成等待，所以这个中断被认为是“属于”后续执行。
+                        即 本次拼团已经结束，或者本次拼团失败，当前线程自动中断
+                         */
                         Thread.currentThread().interrupt();
                     }
                 }
+                /*
+                组内线程被唤醒
+                1、判断broken是否为true，如果是，则抛出异常，表示本次组团失败，所有团员线程抛出异常
+                2、判断代数是否当前代数，不等于，就表示已经开启了新的一代成功，返回当时拼团需要的人数，返回值给到await()
+                3、如果因为超时被唤醒，那么当前线程回去设置当前代的拼团的broker为true，并唤醒其余人，让其余人知道本次拼团失败，并抛出超时异常
+                 */
 
                 if (g.broken)
                     throw new BrokenBarrierException();
 
                 if (g != generation)
-                    return index;
+                    // 当前线程拼团的代数g 已经被更新，说明有当前线程的拼团中有最后一个线程执行了nextGeneration()生成了新的团，因此需要返回
+                    return index; // 只有此处才允许离开for死循环，返回当前线程在拼团中的索引，index等于0表示最后一个拼团的线程
 
                 if (timed && nanos <= 0L) {
                     breakBarrier();
@@ -258,7 +283,7 @@ public class CyclicBarrier {
                 }
             }
         } finally {
-            lock.unlock();
+            lock.unlock(); // 解锁
         }
     }
 
@@ -276,9 +301,9 @@ public class CyclicBarrier {
      */
     public CyclicBarrier(int parties, Runnable barrierAction) {
         if (parties <= 0) throw new IllegalArgumentException();
-        this.parties = parties;
-        this.count = parties;
-        this.barrierCommand = barrierAction;
+        this.parties = parties; //
+        this.count = parties; //
+        this.barrierCommand = barrierAction; // action
     }
 
     /**
@@ -447,7 +472,7 @@ public class CyclicBarrier {
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
-            return generation.broken;
+            return generation.broken; // 当前拼团成功还是失败
         } finally {
             lock.unlock();
         }
@@ -466,8 +491,8 @@ public class CyclicBarrier {
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
-            breakBarrier();   // break the current generation
-            nextGeneration(); // start a new generation
+            breakBarrier();   // break the current generation 打破拼团的当前代
+            nextGeneration(); // start a new generation 并生成拼团的下一代
         } finally {
             lock.unlock();
         }

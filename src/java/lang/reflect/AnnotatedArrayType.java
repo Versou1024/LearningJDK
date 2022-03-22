@@ -34,6 +34,7 @@ package java.lang.reflect;
  * @since 1.8
  */
 public interface AnnotatedArrayType extends AnnotatedType {
+    // 注解修饰的数组的元素为泛型
 
     /**
      * Returns the potentially annotated generic component type of this array type.

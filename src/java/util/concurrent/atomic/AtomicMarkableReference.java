@@ -51,6 +51,8 @@ public class AtomicMarkableReference<V> {
 
     private static class Pair<T> {
         final T reference;
+        //AtomicMarkableReference与AtomicStampedReference的唯一区别就是不再用int标识引用，而是使用boolean变量——表示引用变量是否被更改过。
+        //因此比较适合 一次性状态改变
         final boolean mark;
         private Pair(T reference, boolean mark) {
             this.reference = reference;

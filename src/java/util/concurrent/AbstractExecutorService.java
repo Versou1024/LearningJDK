@@ -118,6 +118,9 @@ public abstract class AbstractExecutorService implements ExecutorService {
      * @throws NullPointerException       {@inheritDoc}
      */
     public <T> Future<T> submit(Runnable task, T result) {
+        // 适配器模式，使得ThreadPoolExecutor能够使用submit()执行callable类型的任务
+        // submit()将ftask在execute(ftask)提交后，注意：提交到线程池的任务并不会立即被运行
+        // 然后立即返回fatsk，由用户通过futureTask.get()阻塞等待直到线程池有线程运行该方法，之后就可以获取到提前设置的结果result
         if (task == null) throw new NullPointerException();
         RunnableFuture<T> ftask = newTaskFor(task, result);
         execute(ftask);
@@ -129,6 +132,9 @@ public abstract class AbstractExecutorService implements ExecutorService {
      * @throws NullPointerException       {@inheritDoc}
      */
     public <T> Future<T> submit(Callable<T> task) {
+        // 适配器模式，使得ThreadPoolExecutor能够使用submit()执行callable类型的任务
+        // submit()将ftask在execute(ftask)提交后，注意：提交到线程池的任务并不会立即被运行
+        // 然后立即返回fatsk，由用户通过futureTask.get()阻塞等待直到线程池有线程运行该方法，之后就可以获取到结果task运行后的结果
         if (task == null) throw new NullPointerException();
         RunnableFuture<T> ftask = newTaskFor(task);
         execute(ftask);
@@ -143,10 +149,12 @@ public abstract class AbstractExecutorService implements ExecutorService {
         throws InterruptedException, ExecutionException, TimeoutException {
         if (tasks == null)
             throw new NullPointerException();
+        // ntaks 批量任务数量
         int ntasks = tasks.size();
         if (ntasks == 0)
             throw new IllegalArgumentException();
         ArrayList<Future<T>> futures = new ArrayList<Future<T>>(ntasks);
+        // 调用ExecutorCompletionService
         ExecutorCompletionService<T> ecs =
             new ExecutorCompletionService<T>(this);
 

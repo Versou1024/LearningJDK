@@ -3207,9 +3207,9 @@ public class Arrays {
      */
     public static <T,U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
         @SuppressWarnings("unchecked")
-        T[] copy = ((Object)newType == (Object)Object[].class)
-            ? (T[]) new Object[newLength]
-            : (T[]) Array.newInstance(newType.getComponentType(), newLength);
+        T[] copy = ((Object)newType == (Object)Object[].class) //同为Object[]数组类型
+            ? (T[]) new Object[newLength] //是，创建一个新Object[]数组
+            : (T[]) Array.newInstance(newType.getComponentType(), newLength);//不是，创建一个对应的类型的数组
         System.arraycopy(original, 0, copy, 0,
                          Math.min(original.length, newLength));
         return copy;

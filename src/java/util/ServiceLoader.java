@@ -185,22 +185,102 @@ import java.util.NoSuchElementException;
 public final class ServiceLoader<S>
     implements Iterable<S>
 {
+    // 围绕DriverManager与ServiceLoader讲解线程上下文类加载的机制
+    // 在DriverManager中调用ServiceLoader.load(Driver.class)方法
+    // public static <S> ServiceLoader<S> load(Class<S> service) {
+    // // 获取线程上下文类加载器，注意由于ServiceLoader是启动类加载器加载的，那启动类加载器显然是无法满足帮忙加载第三方服务实现者的Jar中的Class文件
+    // // 因此需要获取线程上下文类加载器，以此作为后续加载Driver实现者的class对象到内存的类加载器
+    //   ClassLoader cl = Thread.currentThread().getContextClassLoader();
+    //   return ServiceLoader.load(service, cl);
+    // }
+    // public static <S> ServiceLoader<S> load(Class<S> service, ClassLoader loader){
+    //        return new ServiceLoader<>(service, loader);
+    // }
+    // private ServiceLoader(Class<S> svc, ClassLoader cl) {
+    //        service = Objects.requireNonNull(svc, "Service interface cannot be null"); // service表示正在加载的服务类或接口，类型为Class<S>
+    //        loader = (cl == null) ? ClassLoader.getSystemClassLoader() : cl; // 可见如果不指定类加载器的时候，默认使用的就是系统类加载器[而线程上下文类加载器默认就是默认系统类加载器]
+    //        acc = (System.getSecurityManager() != null) ? AccessController.getContext() : null;
+    //        reload();
+    // }
+    // public void reload() {
+    //        providers.clear(); // 清空缓存
+    //        lookupIterator = new LazyIterator(service, loader); // 创建一个 延迟迭代器lookupIterator：service
+    // }
+    // 后续在DriverManager中创建了迭代器并进行延迟定位和初始化
+    // 获取迭代器
+    //     public Iterator<S> iterator() {
+    //        return new Iterator<S>() {
+    //            Iterator<Map.Entry<String,S>> knownProviders = providers.entrySet().iterator(); // 截取的providers的临时快照
+    //            public boolean hasNext() {
+    //                if (knownProviders.hasNext()) // 缓存中如果有下一个SPI实现者
+    //                    return true;
+    //                return lookupIterator.hasNext(); // 假设一般情况下，还没有加载Class对象，因此providers为空集合，使用延迟迭代器lookupIterator的hashNext()
+    //            }
+    //
+    //            public S next() {
+    //                if (knownProviders.hasNext())
+    //                    return knownProviders.next().getValue();
+    //                return lookupIterator.next(); // 缓存中不存在，延迟定位+加载，使用延迟迭代器lookupIterator的next()
+    //            }
+    //        };
+    //    }
+    // ServiceLoader$LazyIterator#hasNext和next方法完成延迟定位和加载
+    // private boolean hasNextService() {
+    //            if (nextName != null) {
+    //                return true;
+    //            }
+    //            // 第一次定位时，需要加载对应service的configs，即需要明确第三份接口实现者的Class的全限定类名
+    //            if (configs == null) {
+    //                String fullName = PREFIX + service.getName(); // fullName = "META-INF/services/" + "java.sql.Driver"
+    //                if (loader == null)
+    //                    configs = ClassLoader.getSystemResources(fullName); // 即使没有类加载器，也会使用系统类加载器加载资源
+    //                else
+    //                    configs = loader.getResources(fullName); // 会去指定的类加载器的指定目录下的获取META-INF/services/java.sql.Driver
+    //            }
+    //            while ((pending == null) || !pending.hasNext()) {
+    //                if (!configs.hasMoreElements()) {
+    //                    return false;
+    //                }
+    //                pending = parse(service, configs.nextElement());
+    //            }
+    //            nextName = pending.next(); // 从configs中解析处下一个name,比如META-INF/services/java.sql.Driver中的文件的有一下两行数据：com.mysql.jdbc.Driver、com.mysql.fabric.jdbc.FabricMySQLDriver
+    //            return true;
+    //        }
+    // private S nextService() {
+    //            if (!hasNextService())
+    //                throw new NoSuchElementException();
+    //            String cn = nextName; // 获取需要加载的Class对象的全限定类名
+    //            nextName = null;
+    //            Class<?> c = null;
+    //            try {
+    //                c = Class.forName(cn, false, loader); // 开始加载，记住需要指定类加载器，否则将使用调用者的类加载即ServiceLoader的定义类加载器：启动类加载器是无法加载的
+    //            } catch (ClassNotFoundException x) {
+    //                fail(service,"Provider " + cn + " not found");
+    //            }
+    //            if (!service.isAssignableFrom(c)) { // 判断加载的c是否为service的子类
+    //                fail(service,"Provider " + cn  + " not a subtype");
+    //            }
+    //            S p = service.cast(c.newInstance()); // 如果是service的子类。调用case强转并存入缓存providers中
+    //            providers.put(cn, p);
+    //            return p;
+    // }
 
+    // 加载二进制文件名的地址
     private static final String PREFIX = "META-INF/services/";
 
-    // The class or interface representing the service being loaded
+    // 表示正在加载的服务的类或接口
     private final Class<S> service;
 
-    // The class loader used to locate, load, and instantiate providers
+    // 用于定位、加载和实例化提供程序的类加载器
     private final ClassLoader loader;
 
-    // The access control context taken when the ServiceLoader is created
+    // 创建ServiceLoader时采用的访问控制上下文
     private final AccessControlContext acc;
 
-    // Cached providers, in instantiation order
+    // 已经缓存的 服务提供者 的迭代器
     private LinkedHashMap<String,S> providers = new LinkedHashMap<>();
 
-    // The current lazy-lookup iterator
+    // 当前的lazy查找迭代器
     private LazyIterator lookupIterator;
 
     /**
@@ -215,13 +295,13 @@ public final class ServiceLoader<S>
      * can be installed into a running Java virtual machine.
      */
     public void reload() {
-        providers.clear();
-        lookupIterator = new LazyIterator(service, loader);
+        providers.clear(); // 清空缓存
+        lookupIterator = new LazyIterator(service, loader); // 创建一个 延迟迭代器：service
     }
 
     private ServiceLoader(Class<S> svc, ClassLoader cl) {
         service = Objects.requireNonNull(svc, "Service interface cannot be null");
-        loader = (cl == null) ? ClassLoader.getSystemClassLoader() : cl;
+        loader = (cl == null) ? ClassLoader.getSystemClassLoader() : cl; // 可见如果不指定类加载器的时候，默认使用的就是系统类加载器
         acc = (System.getSecurityManager() != null) ? AccessController.getContext() : null;
         reload();
     }
@@ -465,11 +545,10 @@ public final class ServiceLoader<S>
     public Iterator<S> iterator() {
         return new Iterator<S>() {
 
-            Iterator<Map.Entry<String,S>> knownProviders
-                = providers.entrySet().iterator();
+            Iterator<Map.Entry<String,S>> knownProviders = providers.entrySet().iterator();
 
             public boolean hasNext() {
-                if (knownProviders.hasNext())
+                if (knownProviders.hasNext()) // 缓存中如果有下一个SPI实现者
                     return true;
                 return lookupIterator.hasNext();
             }
@@ -477,7 +556,7 @@ public final class ServiceLoader<S>
             public S next() {
                 if (knownProviders.hasNext())
                     return knownProviders.next().getValue();
-                return lookupIterator.next();
+                return lookupIterator.next(); // 缓存中不存在，延迟定位+加载
             }
 
             public void remove() {
@@ -534,8 +613,8 @@ public final class ServiceLoader<S>
      * @return A new service loader
      */
     public static <S> ServiceLoader<S> load(Class<S> service) {
-        ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        return ServiceLoader.load(service, cl);
+        ClassLoader cl = Thread.currentThread().getContextClassLoader(); // 获取线程上下文类加载器
+        return ServiceLoader.load(service, cl); //
     }
 
     /**
