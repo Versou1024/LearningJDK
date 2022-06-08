@@ -42,4 +42,11 @@ package java.nio.file;
  */
 
 public interface CopyOption {
+    // CopyOption -- 配置如何复制或移动文件的对象。
+    // CopyOption 这种类型的对象可以与
+    //      Files.copy(Path,Path,CopyOption...)
+    //      Files.copy
+    //      Files.copy(InputStream,Path,CopyOption...)
+    //      Files.move(Path,Path,CopyOption...)
+    //      配置如何复制或移动文件的方法。
 }

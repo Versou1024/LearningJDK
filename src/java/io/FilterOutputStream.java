@@ -43,6 +43,9 @@ package java.io;
  */
 public
 class FilterOutputStream extends OutputStream {
+
+
+    // 被装饰的实际outputStream
     /**
      * The underlying output stream to be filtered.
      */

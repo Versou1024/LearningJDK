@@ -131,6 +131,11 @@ import java.util.concurrent.TimeUnit;
  */
 
 public abstract class AsynchronousChannelGroup {
+    // 用于资源共享的一组异步通道。
+    // 异步通道组封装了处理完成由绑定到组的asynchronous channels发起的 I/O 操作所需的机制。
+    // 一个组有一个关联的线程池，任务被提交到该线程池以处理 I/O 事件并分派给completion-handlers ，
+    // 这些完成处理程序使用在组中的通道上执行的异步操作的结果。除了处理 I/O 事件之外，池化线程还可以执行支持异步 I/O 操作执行所需的其他任务。
+
     private final AsynchronousChannelProvider provider;
 
     /**
@@ -182,6 +187,9 @@ public abstract class AsynchronousChannelGroup {
                                                                ThreadFactory threadFactory)
         throws IOException
     {
+        // 创建具有固定线程池的异步通道组。
+        // 生成的异步通道组重用固定数量的线程。
+        // 在任何时候，最多nThreads线程将是提交以处理 I/O 事件和调度在组中异步通道上启动的操作的完成结果的活动处理任务
         return AsynchronousChannelProvider.provider()
             .openAsynchronousChannelGroup(nThreads, threadFactory);
     }
@@ -229,6 +237,8 @@ public abstract class AsynchronousChannelGroup {
                                                                 int initialSize)
         throws IOException
     {
+        // 创建具有给定线程池的异步通道组，根据需要创建新线程。
+        // 处理 I/O 事件并为组中异步通道上启动的操作调度完成结果。当它们可用时，它可以重用以前构造的线程。
         return AsynchronousChannelProvider.provider()
             .openAsynchronousChannelGroup(executor, initialSize);
     }

@@ -51,7 +51,7 @@ class ByteArrayInputStream extends InputStream {
      * stream;  element <code>buf[pos]</code> is
      * the next byte to be read.
      */
-    protected byte buf[];
+    protected byte buf[]; // 通过构造器传进来
 
     /**
      * The index of the next character to read from the input stream buffer.
@@ -60,7 +60,7 @@ class ByteArrayInputStream extends InputStream {
      * The next byte to be read from the input stream buffer
      * will be <code>buf[pos]</code>.
      */
-    protected int pos;
+    protected int pos; // 当前读到的位置
 
     /**
      * The currently marked position in the stream.
@@ -75,7 +75,7 @@ class ByteArrayInputStream extends InputStream {
      *
      * @since   JDK1.1
      */
-    protected int mark = 0;
+    protected int mark = 0; // 标记位置
 
     /**
      * The index one greater than the last valid character in the input
@@ -86,7 +86,7 @@ class ByteArrayInputStream extends InputStream {
      * the last byte within <code>buf</code> that
      * can ever be read  from the input stream buffer.
      */
-    protected int count;
+    protected int count; // 字节数量
 
     /**
      * Creates a <code>ByteArrayInputStream</code>
@@ -141,6 +141,7 @@ class ByteArrayInputStream extends InputStream {
      *          stream has been reached.
      */
     public synchronized int read() {
+        // 读出单个字节 buf[pos++]
         return (pos < count) ? (buf[pos++] & 0xff) : -1;
     }
 
@@ -180,17 +181,22 @@ class ByteArrayInputStream extends InputStream {
             throw new IndexOutOfBoundsException();
         }
 
+        // 1. 当前位置pos大于字节count,返回-1
         if (pos >= count) {
             return -1;
         }
 
+        // 2. 可用字节数量为count-pos
         int avail = count - pos;
         if (len > avail) {
             len = avail;
         }
+        // 3. len小于0,就直接返回0
         if (len <= 0) {
             return 0;
         }
+        // 4.  java中提供数据复制的方法
+        // 出于速度的原因！他们都用到System.arraycopy方法
         System.arraycopy(buf, pos, b, off, len);
         pos += len;
         return len;
@@ -209,11 +215,18 @@ class ByteArrayInputStream extends InputStream {
      * @return  the actual number of bytes skipped.
      */
     public synchronized long skip(long n) {
+        // 下面这个方法，在InputStream中也已经实现了。
+        // 但是当时是通过将字节读入一个buffer中实现的，好像效率低了一点。
+        // 比InputStream中的方法简单、高效
+
+        //当前位置，可以跳跃的字节数目
         long k = count - pos;
+        // 小于0，则不可以跳跃
         if (n < k) {
             k = n < 0 ? 0 : n;
         }
 
+        //跳跃后，当前位置变化
         pos += k;
         return k;
     }
@@ -229,6 +242,7 @@ class ByteArrayInputStream extends InputStream {
      *          over) from this input stream without blocking.
      */
     public synchronized int available() {
+        // 查询流中还有多少字节没有读取。
         return count - pos;
     }
 
@@ -240,6 +254,7 @@ class ByteArrayInputStream extends InputStream {
      * @since   JDK1.1
      */
     public boolean markSupported() {
+        //ByteArrayInputStream支持mark所以返回true
         return true;
     }
 
@@ -259,6 +274,7 @@ class ByteArrayInputStream extends InputStream {
      * @since   JDK1.1
      */
     public void mark(int readAheadLimit) {
+        // 在流中当前位置mark。
         mark = pos;
     }
 
@@ -268,6 +284,7 @@ class ByteArrayInputStream extends InputStream {
      * in the constructor.
      */
     public synchronized void reset() {
+        //重置流。即回到mark的位置。
         pos = mark;
     }
 
@@ -277,6 +294,7 @@ class ByteArrayInputStream extends InputStream {
      * generating an <tt>IOException</tt>.
      */
     public void close() throws IOException {
+        //  //关闭ByteArrayInputStream不会产生任何动作。
     }
 
 }

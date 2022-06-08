@@ -37,6 +37,8 @@ package java.io;
  * @since   JDK1.1
  */
 public interface ObjectInput extends DataInput, AutoCloseable {
+    // 读取对象
+
     /**
      * Read and return an object. The class that implements this interface
      * defines where the object is "read" from.
@@ -49,6 +51,8 @@ public interface ObjectInput extends DataInput, AutoCloseable {
      */
     public Object readObject()
         throws ClassNotFoundException, IOException;
+    // 重点 -- 读取并返回为一个对象
+    // 其余方法 -- 都是 outputStream 的方法
 
     /**
      * Reads a byte of data. This method will block if no input is

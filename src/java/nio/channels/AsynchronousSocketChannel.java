@@ -417,6 +417,10 @@ public abstract class AsynchronousSocketChannel
                                A attachment,
                                CompletionHandler<Integer,? super A> handler)
     {
+        // dst -- 目的缓冲区
+        // attachment -- 附加组件
+        // handler -- 回调处理器[异步]
+        // timeout -- 超时时间
         read(dst, 0L, TimeUnit.MILLISECONDS, attachment, handler);
     }
 

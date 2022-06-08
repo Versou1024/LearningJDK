@@ -60,8 +60,13 @@ import sun.nio.cs.StreamDecoder;
  */
 
 public class InputStreamReader extends Reader {
+    // 将“字节输入流”转换成“字符输入流”
 
-    private final StreamDecoder sd;
+    // 输入流 -> Reader
+    // 字节 -> 字符
+    // 持有inputStream的功能 -> 继承Reader的功能
+
+    private final StreamDecoder sd; // -- 核心转
 
     /**
      * Creates an InputStreamReader that uses the default charset.
@@ -69,6 +74,7 @@ public class InputStreamReader extends Reader {
      * @param  in   An InputStream
      */
     public InputStreamReader(InputStream in) {
+        // 根据in创建InputStreamReader，使用默认的编码
         super(in);
         try {
             sd = StreamDecoder.forInputStreamReader(in, this, (String)null); // ## check lock object
@@ -91,9 +97,8 @@ public class InputStreamReader extends Reader {
      * @exception  UnsupportedEncodingException
      *             If the named charset is not supported
      */
-    public InputStreamReader(InputStream in, String charsetName)
-        throws UnsupportedEncodingException
-    {
+    public InputStreamReader(InputStream in, String charsetName) throws UnsupportedEncodingException {
+        // 根据in创建InputStreamReader，使用编码charsetName(编码名)
         super(in);
         if (charsetName == null)
             throw new NullPointerException("charsetName");
@@ -110,6 +115,7 @@ public class InputStreamReader extends Reader {
      * @spec JSR-51
      */
     public InputStreamReader(InputStream in, Charset cs) {
+        // 根据in创建InputStreamReader，使用编码cs
         super(in);
         if (cs == null)
             throw new NullPointerException("charset");
@@ -126,6 +132,7 @@ public class InputStreamReader extends Reader {
      * @spec JSR-51
      */
     public InputStreamReader(InputStream in, CharsetDecoder dec) {
+        // 根据in创建InputStreamReader，使用解码器dec
         super(in);
         if (dec == null)
             throw new NullPointerException("charset decoder");

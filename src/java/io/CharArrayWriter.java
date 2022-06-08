@@ -44,17 +44,18 @@ class CharArrayWriter extends Writer {
     /**
      * The buffer where data is stored.
      */
-    protected char buf[];
+    protected char buf[]; // 字符数组缓冲
 
     /**
      * The number of chars in the buffer.
      */
-    protected int count;
+    protected int count; // 下一个字符的写入位置
 
     /**
      * Creates a new CharArrayWriter.
      */
     public CharArrayWriter() {
+        // 构造函数：指定缓冲区大小是initialSize
         this(32);
     }
 
@@ -76,6 +77,7 @@ class CharArrayWriter extends Writer {
      * Writes a character to the buffer.
      */
     public void write(int c) {
+        // 写入一个字符c到CharArrayWriter中
         synchronized (lock) {
             int newcount = count + 1;
             if (newcount > buf.length) {
@@ -93,6 +95,8 @@ class CharArrayWriter extends Writer {
      * @param len       the number of chars that are written
      */
     public void write(char c[], int off, int len) {
+        // 写入字符数组c到CharArrayWriter中。off是“字符数组b中的起始写入位置”，len是写入的长度
+
         if ((off < 0) || (off > c.length) || (len < 0) ||
             ((off + len) > c.length) || ((off + len) < 0)) {
             throw new IndexOutOfBoundsException();
@@ -102,6 +106,10 @@ class CharArrayWriter extends Writer {
         synchronized (lock) {
             int newcount = count + len;
             if (newcount > buf.length) {
+                // 扩容 -- Arrays.copyOf()
+                // 复制指定的数组，用空字符截断或填充（如有必要），使副本具有指定的长度。对于在原始数组和副本中都有效的所有索引，
+                // 这两个数组将包含相同的值。对于在副本中有效但在原始副本中无效的任何索引，副本将包含'\\u000' 。
+                // 当且仅当指定长度大于原始数组的长度时，此类索引才会存在。
                 buf = Arrays.copyOf(buf, Math.max(buf.length << 1, newcount));
             }
             System.arraycopy(c, off, buf, count, len);
@@ -116,9 +124,12 @@ class CharArrayWriter extends Writer {
      * @param  len  Number of characters to be written
      */
     public void write(String str, int off, int len) {
+        // 写入字符串str到CharArrayWriter中。off是“字符串的起始写入位置”，len是写入的长度
+
         synchronized (lock) {
             int newcount = count + len;
             if (newcount > buf.length) {
+                // 扩容
                 buf = Arrays.copyOf(buf, Math.max(buf.length << 1, newcount));
             }
             str.getChars(off, off + len, buf, count);
@@ -133,6 +144,8 @@ class CharArrayWriter extends Writer {
      * @throws IOException If an I/O error occurs.
      */
     public void writeTo(Writer out) throws IOException {
+        // 将CharArrayWriter写入到“Writer对象out”中
+
         synchronized (lock) {
             out.write(buf, 0, count);
         }
@@ -232,6 +245,7 @@ class CharArrayWriter extends Writer {
      * throwing away the already allocated buffer.
      */
     public void reset() {
+        // 重置
         count = 0;
     }
 
@@ -241,6 +255,7 @@ class CharArrayWriter extends Writer {
      * @return an array of chars copied from the input data.
      */
     public char toCharArray()[] {
+        // 将CharArrayWriter的全部数据对应的char[]返回
         synchronized (lock) {
             return Arrays.copyOf(buf, count);
         }
@@ -252,6 +267,7 @@ class CharArrayWriter extends Writer {
      * @return an int representing the current size of the buffer.
      */
     public int size() {
+        // 返回CharArrayWriter的大小
         return count;
     }
 

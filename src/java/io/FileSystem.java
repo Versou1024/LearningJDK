@@ -50,6 +50,7 @@ abstract class FileSystem {
      * already in normal form then it is simply returned.
      */
     public abstract String normalize(String path);
+    // 将给定的路径名字符串转换为正常形式。如果字符串已经是正常形式，那么它会被简单地返回
 
     /**
      * Compute the length of this pathname string's prefix.  The pathname
@@ -63,6 +64,7 @@ abstract class FileSystem {
      * will be in normal form.
      */
     public abstract String resolve(String parent, String child);
+    // 据父项解析子路径名字符串。两个字符串都必须是正常形式，结果也将是正常形式
 
     /**
      * Return the parent pathname string to be used when the parent-directory

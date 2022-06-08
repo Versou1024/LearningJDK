@@ -36,10 +36,13 @@ package java.io;
  */
 public
 class BufferedOutputStream extends FilterOutputStream {
+    //  BufferedOutputStream 是缓冲输出流。它的作用是为另一个输出流添加缓冲功能。
+
+
     /**
      * The internal buffer where data is stored.
      */
-    protected byte buf[];
+    protected byte buf[]; // 缓冲区
 
     /**
      * The number of valid bytes in the buffer. This value is always
@@ -47,7 +50,7 @@ class BufferedOutputStream extends FilterOutputStream {
      * <tt>buf[0]</tt> through <tt>buf[count-1]</tt> contain valid
      * byte data.
      */
-    protected int count;
+    protected int count; // 输出的计数器
 
     /**
      * Creates a new buffered output stream to write data to the
@@ -73,11 +76,13 @@ class BufferedOutputStream extends FilterOutputStream {
         if (size <= 0) {
             throw new IllegalArgumentException("Buffer size <= 0");
         }
+        // 默认的缓冲区大小为8192
         buf = new byte[size];
     }
 
     /** Flush the internal buffer */
     private void flushBuffer() throws IOException {
+        // 刷新缓冲区 -- 调用 out.write(buf, 0, count)
         if (count > 0) {
             out.write(buf, 0, count);
             count = 0;
@@ -91,10 +96,11 @@ class BufferedOutputStream extends FilterOutputStream {
      * @exception  IOException  if an I/O error occurs.
      */
     public synchronized void write(int b) throws IOException {
+        // 调用write(int b),当前字节数超过buf缓冲区大小时,先强制刷新缓存,然后再向buf中填入字节b
         if (count >= buf.length) {
             flushBuffer();
         }
-        buf[count++] = (byte)b;
+        buf[count++] = (byte)b; // 注意:这里是强转,因此b虽然是int类型的,但实际只有低8位被截取下来
     }
 
     /**
@@ -114,17 +120,21 @@ class BufferedOutputStream extends FilterOutputStream {
      * @exception  IOException  if an I/O error occurs.
      */
     public synchronized void write(byte b[], int off, int len) throws IOException {
+        // 1. 如果写入的字节长度len已经大于缓冲区,那就直接刷新花缓冲区,然后将直接将字节数组b中的len长的字节写入到out中
         if (len >= buf.length) {
             /* If the request length exceeds the size of the output buffer,
                flush the output buffer and then write the data directly.
                In this way buffered streams will cascade harmlessly. */
+            // 如果请求长度已经超过输出缓冲区的大小，直接刷新输出缓冲区，然后直接写入数据。
             flushBuffer();
             out.write(b, off, len);
             return;
         }
+        // 2. 如果写入的字节长度len小于缓冲区长度,但是缓冲区剩余容量不够,也需要刷新缓冲区
         if (len > buf.length - count) {
             flushBuffer();
         }
+        // 3. 将需要写入的字节存入缓冲区中
         System.arraycopy(b, off, buf, count, len);
         count += len;
     }
@@ -137,6 +147,7 @@ class BufferedOutputStream extends FilterOutputStream {
      * @see        java.io.FilterOutputStream#out
      */
     public synchronized void flush() throws IOException {
+        // 刷新操作 -- flushBuffer() +  out.flush()
         flushBuffer();
         out.flush();
     }

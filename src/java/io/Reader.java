@@ -49,6 +49,9 @@ package java.io;
  */
 
 public abstract class Reader implements Readable, Closeable {
+    // 等价于 InputStream
+    // 不同点在于 Reader 是针对字符的
+    // InputStream 是针对字节的
 
     /**
      * The object used to synchronize operations on this stream.  For
@@ -95,10 +98,16 @@ public abstract class Reader implements Readable, Closeable {
      * @since 1.5
      */
     public int read(java.nio.CharBuffer target) throws IOException {
+        // 将内容读为字符串加入到CharBuffer缓冲区中
+
+        // 1. 返回当前pos位置和limit限制之间的元素数 -- 剩余可以写入的字符数
         int len = target.remaining();
+        // 2. 创建字符数组
         char[] cbuf = new char[len];
+        // 3. 读到cbuf中
         int n = read(cbuf, 0, len);
         if (n > 0)
+            // 4. 有效的字符读取后,存入到缓冲区中
             target.put(cbuf, 0, n);
         return n;
     }
@@ -117,6 +126,8 @@ public abstract class Reader implements Readable, Closeable {
      * @exception  IOException  If an I/O error occurs
      */
     public int read() throws IOException {
+        // 取出一个字符 -- java中一个字符是2字节的
+
         char cb[] = new char[1];
         if (read(cb, 0, 1) == -1)
             return -1;
@@ -155,6 +166,8 @@ public abstract class Reader implements Readable, Closeable {
      * @exception  IOException  If an I/O error occurs
      */
     abstract public int read(char cbuf[], int off, int len) throws IOException;
+    // 留给子类实现的
+    // 重点 ---------
 
     /** Maximum skip-buffer size */
     private static final int maxSkipBufferSize = 8192;
@@ -201,6 +214,7 @@ public abstract class Reader implements Readable, Closeable {
      * @exception  IOException  If an I/O error occurs
      */
     public boolean ready() throws IOException {
+        // 告诉这个流是否准备好被读取
         return false;
     }
 

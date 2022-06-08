@@ -163,16 +163,19 @@ public class File
      * @serial
      */
     private final String path;
+    // 规范化的路径名字符串使用默认的名称分隔符，并且不包含任何重复或多余的分隔符。
 
     /**
      * Enum type that indicates the status of a file path.
      */
     private static enum PathStatus { INVALID, CHECKED };
+    // 指示文件路径状态的枚举类型。
 
     /**
      * The flag indicating whether the file path is invalid.
      */
     private transient PathStatus status = null;
+    // 指示文件路径是否无效的标志。
 
     /**
      * Check if the file has an invalid path. Currently, the inspection of
@@ -183,6 +186,9 @@ public class File
      * @return true if the file path is invalid.
      */
     final boolean isInvalid() {
+        // 注意 ❗️❗️❗️
+        // 检查文件是否有无效路径。目前对文件路径的检查非常有限，只包括Nul字符检查。
+        // 返回 true 意味着路径肯定是无效/垃圾。但是返回 false 并不能保证路径是有效的
         if (status == null) {
             status = (this.path.indexOf('\u0000') < 0) ? PathStatus.CHECKED
                                                        : PathStatus.INVALID;
@@ -195,6 +201,7 @@ public class File
      * prefix.
      */
     private final transient int prefixLength;
+    // 此抽象路径名前缀的长度，如果没有前缀，则为零
 
     /**
      * Returns the length of this abstract pathname's prefix.
@@ -213,6 +220,10 @@ public class File
      * @see     java.lang.System#getProperty(java.lang.String)
      */
     public static final char separatorChar = fs.getSeparator();
+    // 系统相关的默认名称分隔符
+    // 该字段被初始化为包含系统属性"file.separator"值的第一个字符。
+    // 在 UNIX 系统上，该字段的值为'/' ；
+    // 在 Microsoft Windows 系统上，它是'\\' 。
 
     /**
      * The system-dependent default name-separator character, represented as a
@@ -232,6 +243,11 @@ public class File
      * @see     java.lang.System#getProperty(java.lang.String)
      */
     public static final char pathSeparatorChar = fs.getPathSeparator();
+    // 系统相关的路径分隔符字符。
+    // 该字段被初始化为包含系统属性"path.separator"值的第一个字符。
+    // 该字符用于分隔作为路径列表给出的文件序列中的文件名。
+    // 在 UNIX 系统上，这个字符是':' ；
+    // 在 Microsoft Windows 系统上它是';' .
 
     /**
      * The system-dependent path-separator character, represented as a string
@@ -242,6 +258,8 @@ public class File
 
 
     /* -- Constructors -- */
+    /* -- 构造器 -- */
+
 
     /**
      * Internal constructor for already-normalized pathname strings.

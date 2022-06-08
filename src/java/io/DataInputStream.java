@@ -41,6 +41,8 @@ package java.io;
  */
 public
 class DataInputStream extends FilterInputStream implements DataInput {
+    // DataInputStream 是数据输入流。它继承于FilterInputStream。
+    // DataInputStream 是用来装饰其它输入流，它“允许应用程序以与机器无关方式从底层输入流中读取基本 Java 数据类型”。应用程序可以使用DataOutputStream(数据输出流)写入由DataInputStream(数据输入流)读取的数据
 
     /**
      * Creates a DataInputStream that uses the specified
@@ -166,6 +168,8 @@ class DataInputStream extends FilterInputStream implements DataInput {
      * @see        java.io.FilterInputStream#in
      */
     public final void readFully(byte b[]) throws IOException {
+        // 从“数据输入流”中读取数据并填满字节数组b中；没有填满数组b则一直读取，直到填满位置。
+        // 从字节数组b的位置0开始存储，并且读取的字节个数等于b的长度
         readFully(b, 0, b.length);
     }
 
@@ -188,6 +192,10 @@ class DataInputStream extends FilterInputStream implements DataInput {
      * @see        java.io.FilterInputStream#in
      */
     public final void readFully(byte b[], int off, int len) throws IOException {
+        // 能确保一定读取到文件末尾
+        // 因为当读取出来的in.read(b, off + n, len - n)不是len个字节时,会 n+=count 后继续尝试读取一次
+        // 例如 len = 100 实际 in输入流 中只有 30 字节
+        // 那么读取后 count = 30, n更新为30,然后in.read(b, off + 30, len - 30) -- 读到count为-1
         if (len < 0)
             throw new IndexOutOfBoundsException();
         int n = 0;
@@ -239,6 +247,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      * @see        java.io.FilterInputStream#in
      */
     public final boolean readBoolean() throws IOException {
+        // boolean -- 读取一个字节
         int ch = in.read();
         if (ch < 0)
             throw new EOFException();
@@ -262,6 +271,8 @@ class DataInputStream extends FilterInputStream implements DataInput {
      * @see        java.io.FilterInputStream#in
      */
     public final byte readByte() throws IOException {
+        // byte -- 读取一个字节
+
         int ch = in.read();
         if (ch < 0)
             throw new EOFException();
@@ -309,6 +320,8 @@ class DataInputStream extends FilterInputStream implements DataInput {
      * @see        java.io.FilterInputStream#in
      */
     public final short readShort() throws IOException {
+        // short -- 读取两个字节
+
         int ch1 = in.read();
         int ch2 = in.read();
         if ((ch1 | ch2) < 0)
@@ -359,6 +372,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      * @see        java.io.FilterInputStream#in
      */
     public final char readChar() throws IOException {
+        // char -- 读取两个字节
         int ch1 = in.read();
         int ch2 = in.read();
         if ((ch1 | ch2) < 0)
@@ -384,10 +398,13 @@ class DataInputStream extends FilterInputStream implements DataInput {
      * @see        java.io.FilterInputStream#in
      */
     public final int readInt() throws IOException {
+        // int -- 读取4个字节
+
         int ch1 = in.read();
         int ch2 = in.read();
         int ch3 = in.read();
         int ch4 = in.read();
+        // 任何一个 ch 为负数,就表示没有读取到4个字节,抛出 EOFException 即可
         if ((ch1 | ch2 | ch3 | ch4) < 0)
             throw new EOFException();
         return ((ch1 << 24) + (ch2 << 16) + (ch3 << 8) + (ch4 << 0));
@@ -443,6 +460,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      * @see        java.lang.Float#intBitsToFloat(int)
      */
     public final float readFloat() throws IOException {
+        // 利用  Float.intBitsToFloat()
         return Float.intBitsToFloat(readInt());
     }
 
@@ -465,6 +483,7 @@ class DataInputStream extends FilterInputStream implements DataInput {
      * @see        java.lang.Double#longBitsToDouble(long)
      */
     public final double readDouble() throws IOException {
+        // 利用  Double.longBitsToDouble()
         return Double.longBitsToDouble(readLong());
     }
 
@@ -499,22 +518,27 @@ class DataInputStream extends FilterInputStream implements DataInput {
      */
     @Deprecated
     public final String readLine() throws IOException {
+        // 1. 读取line的缓冲区
         char buf[] = lineBuffer;
 
         if (buf == null) {
             buf = lineBuffer = new char[128];
         }
 
+        // 2.空闲量/位移位置/字符c
         int room = buf.length;
         int offset = 0;
         int c;
 
 loop:   while (true) {
+            // 3. 读取一个字节
             switch (c = in.read()) {
+                // 3.1 -1或者换行符\n,结束循环
               case -1:
               case '\n':
                 break loop;
 
+                // 3.2 特殊换行符,"\r\n"
               case '\r':
                 int c2 = in.read();
                 if ((c2 != '\n') && (c2 != -1)) {
@@ -525,7 +549,9 @@ loop:   while (true) {
                 }
                 break loop;
 
+                // 3.3 正常情况
               default:
+                  // 3.3.1 容量不够,需要buf扩容,扩容前将lineBuffer先复制过去
                 if (--room < 0) {
                     buf = new char[offset + 128];
                     room = buf.length - offset - 1;
@@ -586,9 +612,16 @@ loop:   while (true) {
      * @see        java.io.DataInputStream#readUnsignedShort()
      */
     public final static String readUTF(DataInput in) throws IOException {
+        // 从“数据输入流”中读取“无符号的short类型”的值：
+        // 注意：UTF-8输入流的前2个字节是数据的长度
         int utflen = in.readUnsignedShort();
         byte[] bytearr = null;
         char[] chararr = null;
+
+        // 如果in本身是“数据输入流”，
+        // 则   设置字节数组bytearr = "数据输入流"的成员bytearr
+        //     设置字符数组chararr = "数据输入流"的成员chararr
+        // 否则的话，新建数组bytearr和chararr
         if (in instanceof DataInputStream) {
             DataInputStream dis = (DataInputStream)in;
             if (dis.bytearr.length < utflen){
@@ -606,55 +639,79 @@ loop:   while (true) {
         int count = 0;
         int chararr_count=0;
 
+        // 从“数据输入流”中读取数据并存储到字节数组bytearr中；从bytearr的位置0开始存储，存储长度为utflen。
+        // 注意，这里是存储到字节数组！而且读取的是全部的数据。
         in.readFully(bytearr, 0, utflen);
 
+        // 将“字节数组bytearr”中的数据 拷贝到 “字符数组chararr”中
+        // 注意：这里相当于“预处理的输入流中单字节的符号”，因为UTF-8是1-4个字节可变的。
         while (count < utflen) {
+            // 将每个字节转换成int值
             c = (int) bytearr[count] & 0xff;
+            // UTF-8的每个字节的值都不会超过127；所以，超过127，则退出。
             if (c > 127) break;
             count++;
+            // 将c保存到“字符数组chararr”中
             chararr[chararr_count++]=(char)c;
         }
 
+        // 处理完输入流中单字节的符号之后，接下来我们继续处理。
         while (count < utflen) {
+            // 下面语句执行了2步操作。
+            // (01) 将字节由 “byte类型” 转换成 “int类型”。
+            //      例如， “11001010” 转换成int之后，是 “00000000 00000000 00000000 11001010”
+            // (02) 将 “int类型” 的数据左移4位
+            //      例如， “00000000 00000000 00000000 11001010” 右移4位之后，变成 “00000000 00000000 00000000 00001100”
             c = (int) bytearr[count] & 0xff;
             switch (c >> 4) {
+                // 若 UTF-8 是单字节，即 bytearr[count] 对应是 “0xxxxxxx” 形式；
+                // 则 bytearr[count] 对应的int类型的c的取值范围是 0-7。
                 case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7:
                     /* 0xxxxxxx*/
                     count++;
                     chararr[chararr_count++]=(char)c;
                     break;
+
+                // 若 UTF-8 是双字节，即 bytearr[count] 对应是 “110xxxxx  10xxxxxx” 形式中的第一个，即“110xxxxx”
+                // 则 bytearr[count] 对应的int类型的c的取值范围是 12-13。
                 case 12: case 13:
                     /* 110x xxxx   10xx xxxx*/
                     count += 2;
                     if (count > utflen)
                         throw new UTFDataFormatException(
-                            "malformed input: partial character at end");
+                                "malformed input: partial character at end");
                     char2 = (int) bytearr[count-1];
                     if ((char2 & 0xC0) != 0x80)
                         throw new UTFDataFormatException(
-                            "malformed input around byte " + count);
+                                "malformed input around byte " + count);
                     chararr[chararr_count++]=(char)(((c & 0x1F) << 6) |
-                                                    (char2 & 0x3F));
+                            (char2 & 0x3F));
                     break;
+
+                // 若 UTF-8 是三字节，即 bytearr[count] 对应是 “1110xxxx  10xxxxxx  10xxxxxx” 形式中的第一个，即“1110xxxx”
+                // 则 bytearr[count] 对应的int类型的c的取值是14 。
                 case 14:
                     /* 1110 xxxx  10xx xxxx  10xx xxxx */
                     count += 3;
                     if (count > utflen)
                         throw new UTFDataFormatException(
-                            "malformed input: partial character at end");
+                                "malformed input: partial character at end");
                     char2 = (int) bytearr[count-2];
                     char3 = (int) bytearr[count-1];
                     if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80))
                         throw new UTFDataFormatException(
-                            "malformed input around byte " + (count-1));
+                                "malformed input around byte " + (count-1));
                     chararr[chararr_count++]=(char)(((c     & 0x0F) << 12) |
-                                                    ((char2 & 0x3F) << 6)  |
-                                                    ((char3 & 0x3F) << 0));
+                            ((char2 & 0x3F) << 6)  |
+                            ((char3 & 0x3F) << 0));
                     break;
+
+                // 若 UTF-8 是四字节，即 bytearr[count] 对应是 “11110xxx 10xxxxxx  10xxxxxx  10xxxxxx” 形式中的第一个，即“11110xxx”
+                // 则 bytearr[count] 对应的int类型的c的取值是15
                 default:
                     /* 10xx xxxx,  1111 xxxx */
                     throw new UTFDataFormatException(
-                        "malformed input around byte " + count);
+                            "malformed input around byte " + count);
             }
         }
         // The number of chars produced may be less than utflen

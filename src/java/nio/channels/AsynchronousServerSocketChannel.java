@@ -91,9 +91,7 @@ import java.io.IOException;
  * @since 1.7
  */
 
-public abstract class AsynchronousServerSocketChannel
-    implements AsynchronousChannel, NetworkChannel
-{
+public abstract class AsynchronousServerSocketChannel implements AsynchronousChannel, NetworkChannel {
     private final AsynchronousChannelProvider provider;
 
     /**
@@ -137,11 +135,8 @@ public abstract class AsynchronousServerSocketChannel
      * @throws  IOException
      *          If an I/O error occurs
      */
-    public static AsynchronousServerSocketChannel open(AsynchronousChannelGroup group)
-        throws IOException
-    {
-        AsynchronousChannelProvider provider = (group == null) ?
-            AsynchronousChannelProvider.provider() : group.provider();
+    public static AsynchronousServerSocketChannel open(AsynchronousChannelGroup group) throws IOException {
+        AsynchronousChannelProvider provider = (group == null) ? AsynchronousChannelProvider.provider() : group.provider();
         return provider.openAsynchronousServerSocketChannel(group);
     }
 

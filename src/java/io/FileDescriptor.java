@@ -86,6 +86,10 @@ public final class FileDescriptor {
         );
     }
 
+    //  (01) in  -- 标准输入(键盘)的描述符
+    //  (02) out -- 标准输出(屏幕)的描述符
+    //  (03) err -- 标准错误输出(屏幕)的描述符
+
     /**
      * A handle to the standard input stream. Usually, this file
      * descriptor is not used directly, but rather via the input stream

@@ -35,6 +35,8 @@ import java.io.IOException;
  * @since 1.5
  */
 public interface Flushable {
+    // Flushable是可以将缓冲区的数据刷新到目的地。
+    // 调用 flush 方法将任何缓冲的输出写入底层流。
 
     /**
      * Flushes this stream by writing any buffered output to the underlying

@@ -47,18 +47,19 @@ public class ByteArrayOutputStream extends OutputStream {
     /**
      * The buffer where data is stored.
      */
-    protected byte buf[];
+    protected byte buf[]; // 保存“字节数组输出流”数据的数组
 
     /**
      * The number of valid bytes in the buffer.
      */
-    protected int count;
+    protected int count; // “字节数组输出流”的计数
 
     /**
      * Creates a new byte array output stream. The buffer capacity is
      * initially 32 bytes, though its size increases if necessary.
      */
     public ByteArrayOutputStream() {
+        // 构造函数：默认创建的字节数组大小是32。
         this(32);
     }
 
@@ -70,6 +71,7 @@ public class ByteArrayOutputStream extends OutputStream {
      * @exception  IllegalArgumentException if size is negative.
      */
     public ByteArrayOutputStream(int size) {
+        // 构造函数：创建指定数组大小的“字节数组输出流”
         if (size < 0) {
             throw new IllegalArgumentException("Negative initial size: "
                                                + size);
@@ -89,6 +91,9 @@ public class ByteArrayOutputStream extends OutputStream {
      */
     private void ensureCapacity(int minCapacity) {
         // overflow-conscious code
+        // 确认“容量”。
+        // 若“实际容量 < "最小需要的minCapacity”，则增加“字节数组输出流”的容量
+        // 增长到 minCapacity
         if (minCapacity - buf.length > 0)
             grow(minCapacity);
     }
@@ -109,6 +114,7 @@ public class ByteArrayOutputStream extends OutputStream {
      */
     private void grow(int minCapacity) {
         // overflow-conscious code
+        // 1. 在buf.length扩容一倍,如果扩容后还是小于minCapacity,那就是以minCapacity为准进行扩容吧
         int oldCapacity = buf.length;
         int newCapacity = oldCapacity << 1;
         if (newCapacity - minCapacity < 0)
@@ -132,6 +138,8 @@ public class ByteArrayOutputStream extends OutputStream {
      * @param   b   the byte to be written.
      */
     public synchronized void write(int b) {
+        // 写入一个字节b到“字节数组输出流”中，并将计数+1
+
         ensureCapacity(count + 1);
         buf[count] = (byte) b;
         count += 1;
@@ -146,6 +154,8 @@ public class ByteArrayOutputStream extends OutputStream {
      * @param   len   the number of bytes to write.
      */
     public synchronized void write(byte b[], int off, int len) {
+        // 写入字节数组b到“字节数组输出流”中。off是“写入字节数组b的起始位置”，len是写入的长度
+
         if ((off < 0) || (off > b.length) || (len < 0) ||
             ((off + len) - b.length > 0)) {
             throw new IndexOutOfBoundsException();
@@ -164,6 +174,7 @@ public class ByteArrayOutputStream extends OutputStream {
      * @exception  IOException  if an I/O error occurs.
      */
     public synchronized void writeTo(OutputStream out) throws IOException {
+        // 写入输出流outb到“字节数组输出流”中。
         out.write(buf, 0, count);
     }
 
@@ -176,6 +187,7 @@ public class ByteArrayOutputStream extends OutputStream {
      * @see     java.io.ByteArrayInputStream#count
      */
     public synchronized void reset() {
+        // 重置“字节数组输出流”的计数。
         count = 0;
     }
 
@@ -188,6 +200,7 @@ public class ByteArrayOutputStream extends OutputStream {
      * @see     java.io.ByteArrayOutputStream#size()
      */
     public synchronized byte toByteArray()[] {
+        // 将“字节数组输出流”转换成字节数组。
         return Arrays.copyOf(buf, count);
     }
 
@@ -199,6 +212,7 @@ public class ByteArrayOutputStream extends OutputStream {
      * @see     java.io.ByteArrayOutputStream#count
      */
     public synchronized int size() {
+        // 返回“字节数组输出流”当前计数值
         return count;
     }
 

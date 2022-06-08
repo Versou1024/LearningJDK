@@ -54,13 +54,15 @@ import java.io.Closeable;
  */
 
 public interface Channel extends Closeable {
+    // 通道 -- 具有输入和输出的特点
+    //
 
     /**
      * Tells whether or not this channel is open.
      *
      * @return <tt>true</tt> if, and only if, this channel is open
      */
-    public boolean isOpen();
+    public boolean isOpen(); // 告知此通道是否打开
 
     /**
      * Closes this channel.
@@ -79,6 +81,6 @@ public interface Channel extends Closeable {
      *
      * @throws  IOException  If an I/O error occurs
      */
-    public void close() throws IOException;
+    public void close() throws IOException; // 通道关闭后，任何对其调用 I/O 操作的进一步尝试都将导致抛出ClosedChannelException 。
 
 }

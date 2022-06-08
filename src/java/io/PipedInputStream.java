@@ -48,14 +48,17 @@ package java.io;
  * @since   JDK1.0
  */
 public class PipedInputStream extends InputStream {
+    // 标识有读取方或写入方关闭
     boolean closedByWriter = false;
     volatile boolean closedByReader = false;
+    // 表示连接是否有效
     boolean connected = false;
 
         /* REMIND: identification of the read and write sides needs to be
            more sophisticated.  Either using thread groups (but what about
            pipes within a thread?) or using finalization (but it may be a
            long time until the next GC). */
+    // 写入和写出线程
     Thread readSide;
     Thread writeSide;
 
@@ -74,7 +77,7 @@ public class PipedInputStream extends InputStream {
      * The circular buffer into which incoming data is placed.
      * @since   JDK1.1
      */
-    protected byte buffer[];
+    protected byte buffer[]; // 缓冲区
 
     /**
      * The index of the position in the circular buffer at which the
@@ -84,6 +87,10 @@ public class PipedInputStream extends InputStream {
      * @since   JDK1.1
      */
     protected int in = -1;
+    // 下一个写入字节的位置。0代表空，in==out代表满 -- 输出
+    // 一般是从连接的管道输出流接收字节时，循环缓冲区中将存储下一个字节数据的位置的索引。
+    // in<0表示缓冲区为空， in==out表示缓冲区已满
+
 
     /**
      * The index of the position in the circular buffer at which the next
@@ -91,6 +98,8 @@ public class PipedInputStream extends InputStream {
      * @since   JDK1.1
      */
     protected int out = 0;
+    // 此管道输入流将读取下一个数据字节的循环缓冲区中位置的索引
+    // 即当前输入流从缓冲区获取的下一个字节
 
     /**
      * Creates a <code>PipedInputStream</code> so
@@ -155,6 +164,7 @@ public class PipedInputStream extends InputStream {
     }
 
     private void initPipe(int pipeSize) {
+        // 初始化管道的大小 -- pipesize
          if (pipeSize <= 0) {
             throw new IllegalArgumentException("Pipe Size <= 0");
          }
@@ -185,6 +195,7 @@ public class PipedInputStream extends InputStream {
      * @exception  IOException  if an I/O error occurs.
      */
     public void connect(PipedOutputStream src) throws IOException {
+        // 将输出流连接到当前这个输入流中
         src.connect(this);
     }
 
@@ -198,8 +209,17 @@ public class PipedInputStream extends InputStream {
      * @since     JDK1.1
      */
     protected synchronized void receive(int b) throws IOException {
+        // 从PipedOutputStream中接收一个字节的数据。如果没有可用的输入，此方法将阻塞。
+        // 参数：b – 正在接收的字节
+
+        // 接收int类型的数据b。
+        // 它只会在PipedOutputStream的write(int b)中会被调用
+
+        // 检查管道状态
         checkStateForReceive();
+        // 获取“写入管道”的线程
         writeSide = Thread.currentThread();
+        // 若“写入管道”的数据正好全部被读取完，则等待。
         if (in == out)
             awaitSpace();
         if (in < 0) {
@@ -207,6 +227,7 @@ public class PipedInputStream extends InputStream {
             out = 0;
         }
         buffer[in++] = (byte)(b & 0xFF);
+        // 写入超过buffer大小,下次写入in位置为0
         if (in >= buffer.length) {
             in = 0;
         }
@@ -223,29 +244,39 @@ public class PipedInputStream extends InputStream {
      *           closed,or if an I/O error occurs.
      */
     synchronized void receive(byte b[], int off, int len)  throws IOException {
+        // 将数据接收到字节数组中。此方法将阻塞，直到某些输入可用。
+        // 注意:当一次写入的数组b的len超过buffer.length时,会导致len-buffer.length的字节数组b中的数据被缓冲区丢失
+        // 只讲前半部分nextTransferAmount保留下来,默认缓冲区大小为1024的哦
+
         checkStateForReceive();
         writeSide = Thread.currentThread();
         int bytesToTransfer = len;
         while (bytesToTransfer > 0) {
+            // 输入和输出相等，等待空间
             if (in == out)
                 awaitSpace();
             int nextTransferAmount = 0;
+            // 输入超过输出,允许,还允许继续接受 buffer.length - in 个字节填充到buffer中
             if (out < in) {
                 nextTransferAmount = buffer.length - in;
             } else if (in < out) {
+                // 输出超过输入,但输入为-1,因此还未开始输入,nextTransferAmount =  buffer.length,允许向buffer中填充buffer大小的数据
                 if (in == -1) {
                     in = out = 0;
                     nextTransferAmount = buffer.length - in;
                 } else {
+                    // 输出超过输入,且输入不是-1,表名有输入, nextTransferAmount = out - in ,表示需要这么多来弥补超强输出
                     nextTransferAmount = out - in;
                 }
             }
             if (nextTransferAmount > bytesToTransfer)
                 nextTransferAmount = bytesToTransfer;
             assert(nextTransferAmount > 0);
+            // 将数组b填充到buffer中,从in填充到nextTransferAmount个字节为止
             System.arraycopy(b, off, buffer, in, nextTransferAmount);
             bytesToTransfer -= nextTransferAmount;
             off += nextTransferAmount;
+            // 写入的位置
             in += nextTransferAmount;
             if (in >= buffer.length) {
                 in = 0;
@@ -254,20 +285,28 @@ public class PipedInputStream extends InputStream {
     }
 
     private void checkStateForReceive() throws IOException {
+        // 1. 未连接
         if (!connected) {
             throw new IOException("Pipe not connected");
+            // 2. 读者或写者请求关闭
         } else if (closedByWriter || closedByReader) {
             throw new IOException("Pipe closed");
+            // 3.
         } else if (readSide != null && !readSide.isAlive()) {
             throw new IOException("Read end dead");
         }
     }
-
+    // 等待。
+    // 若“写入管道”的数据正好全部被读取完(例如，管道缓冲满)，则执行awaitSpace()操作；
+    // 它的目的是让“读取管道的线程”管道产生读取数据请求，从而才能继续的向“管道”中写入数据。
     private void awaitSpace() throws IOException {
+        // out是下一次需要取出的字节,in为当前写入的字节位置
+        // 因此ou下一次将读取in上的字节,需要等待有人触发read(),将out提前,才可以使用缓冲区
         while (in == out) {
             checkStateForReceive();
 
             /* full: kick any waiting readers */
+            // 缓冲区已经写满啦,写入的位置in和读取的位置out相等,只有朱塞起来,等待数据的更多接受
             notifyAll();
             try {
                 wait(1000);
@@ -282,6 +321,9 @@ public class PipedInputStream extends InputStream {
      * received.
      */
     synchronized void receivedLast() {
+        // 通知所有等待的线程已收到最后一个字节的数据。
+        // 当PipedOutputStream被关闭时，被调用
+
         closedByWriter = true;
         notifyAll();
     }
@@ -301,6 +343,8 @@ public class PipedInputStream extends InputStream {
      *           or if an I/O error occurs.
      */
     public synchronized int read()  throws IOException {
+        // 从管道(的缓冲)中读取一个字节，并将其转换成int类型
+
         if (!connected) {
             throw new IOException("Pipe not connected");
         } else if (closedByReader) {
@@ -312,11 +356,13 @@ public class PipedInputStream extends InputStream {
 
         readSide = Thread.currentThread();
         int trials = 2;
+        // 等待直到缓存区有输入写入
         while (in < 0) {
             if (closedByWriter) {
                 /* closed by writer, return EOF */
                 return -1;
             }
+            // 写者存在且不为空
             if ((writeSide != null) && (!writeSide.isAlive()) && (--trials < 0)) {
                 throw new IOException("Pipe broken");
             }
@@ -328,10 +374,14 @@ public class PipedInputStream extends InputStream {
                 throw new java.io.InterruptedIOException();
             }
         }
+        // out 就是下一次需要取出的位置,ret 待返回的字节
         int ret = buffer[out++] & 0xFF;
+        // 读完之后,若新的取出的位置out超过buffer,就将out职为0
         if (out >= buffer.length) {
             out = 0;
         }
+        // 输入和输出位置相同 -- 表名已经读取到写入的位置上,in=-1,下次可以重新从缓冲区重头写入哦
+        // 因此 out 是可以大于 in 的
         if (in == out) {
             /* now empty */
             in = -1;

@@ -50,6 +50,7 @@ package java.io;
  */
 
 public class FileWriter extends OutputStreamWriter {
+    // 在 OutputStreamWriter 上完成
 
     /**
      * Constructs a FileWriter object given a file name.

@@ -147,6 +147,8 @@ package java.io;
  */
 public
 interface DataInput {
+    // 基本数据类型的read -- 包括 boolean\byte\double\float\long\short
+
     /**
      * Reads some bytes from an input
      * stream and stores them into the buffer
@@ -188,6 +190,14 @@ interface DataInput {
      * @exception  IOException   if an I/O error occurs.
      */
     void readFully(byte b[]) throws IOException;
+    // 从输入流中读取一些字节并将它们存储到缓冲区数组b中。读取的字节数等于b的长度。
+    //  此方法会阻塞，直到发生以下情况之一：
+    //      b.length字节的输入数据可用，在这种情况下正常返回。
+    //      检测到文件结尾，在这种情况下抛出EOFException 。
+    //      发生 I/O 错误，在这种情况下会抛出EOFException以外的IOException 。
+    //  如果b为null ，则抛出NullPointerException。
+    //  如果b.length为零，则不读取任何字节。否则，读取的第一个字节存储到元素b[0]中，下一个字节存储到b[1]中，依此类推。
+    //  如果此方法引发异常，则可能是b的某些但不是所有字节已使用来自输入流的数据进行了更新。
 
     /**
      *
@@ -234,6 +244,8 @@ interface DataInput {
      * @exception  IOException   if an I/O error occurs.
      */
     void readFully(byte b[], int off, int len) throws IOException;
+    // 从输入流中读取len个字节到直接数组b的off开始
+    // 读取的第一个字节存储到元素b[off]中，下一个字节存储到b[off+1]中，依此类推。读取的字节数最多等于len 。
 
     /**
      * Makes an attempt to skip over
@@ -257,6 +269,7 @@ interface DataInput {
      * @exception  IOException   if an I/O error occurs.
      */
     int skipBytes(int n) throws IOException;
+    // 尝试从输入流中跳过n个字节的数据，丢弃跳过的字节
 
     /**
      * Reads one input byte and returns
@@ -272,6 +285,7 @@ interface DataInput {
      * @exception  IOException   if an I/O error occurs.
      */
     boolean readBoolean() throws IOException;
+    // 读取一个输入字节，如果该字节非零则返回true ，如果该字节为零则返回false 。
 
     /**
      * Reads and returns one input byte.
@@ -288,6 +302,7 @@ interface DataInput {
      * @exception  IOException   if an I/O error occurs.
      */
     byte readByte() throws IOException;
+    // 读取并返回一个输入字节。该字节被视为-128到127范围内的有符号值
 
     /**
      * Reads one input byte, zero-extends
@@ -372,6 +387,8 @@ interface DataInput {
      * @exception  IOException   if an I/O error occurs.
      */
     char readChar() throws IOException;
+    // 读取两个输入字节并返回一个char值。设a为读取的第一个字节， b为第二个字节。返回的值为：
+    // (char)((a << 8) | (b & 0xff))
 
     /**
      * Reads four input bytes and returns an
@@ -438,6 +455,7 @@ interface DataInput {
      * @exception  IOException   if an I/O error occurs.
      */
     float readFloat() throws IOException;
+    // 读取四个输入字节并返回一个float值。它首先按照readInt方法的方式构造一个int值，然后按照Float.intBitsToFloat方法的方式将此int值转换为float
 
     /**
      * Reads eight input bytes and returns
@@ -458,6 +476,8 @@ interface DataInput {
      * @exception  IOException   if an I/O error occurs.
      */
     double readDouble() throws IOException;
+    // 读取八个输入字节并返回一个double值。它首先按照readLong方法的方式构造一个long值，然后按照Double.longBitsToDouble方法的方式将此long值转换为double。
+    // 该方法适用于读取接口DataOutput的writeDouble方法写入的字节。
 
     /**
      * Reads the next line of text from the input stream.
@@ -499,6 +519,7 @@ interface DataInput {
      * @exception  IOException  if an I/O error occurs.
      */
     String readLine() throws IOException;
+    // 从输入流中读取下一行文本。它读取连续的字节，将每个字节分别转换为一个字符，直到遇到行终止符或文件结尾；然后将读取的字符作为String返回。请注意，由于此方法处理字节，因此它不支持输入完整的 Unicode 字符集。
 
     /**
      * Reads in a string that has been encoded using a

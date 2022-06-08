@@ -34,12 +34,16 @@ package java.io;
  */
 
 public class PipedWriter extends Writer {
+    // PipedWriter 是字符管道输出流，它继承于Writer。
+    // PipedReader 是字符管道输入流，它继承于Writer。
+    // PipedWriter和PipedReader的作用是可以通过管道进行线程间的通讯。在使用管道通信时，必须将PipedWriter和PipedReader配套使用。
 
     /* REMIND: identification of the read and write sides needs to be
        more sophisticated.  Either using thread groups (but what about
        pipes within a thread?) or using finalization (but it may be a
        long time until the next GC). */
     private PipedReader sink;
+    // 关联的管道Reader
 
     /* This flag records the open status of this particular writer. It
      * is independent of the status flags defined in PipedReader. It is
@@ -96,7 +100,10 @@ public class PipedWriter extends Writer {
         } else if (snk.closedByReader || closed) {
             throw new IOException("Pipe closed");
         }
-
+        // 关联的管道Reader,
+        // 将reader中的in写入为-1
+        // 将reader中的out输出为0
+        // 连接标识 connected 设置为 true
         sink = snk;
         snk.in = -1;
         snk.out = 0;
@@ -118,6 +125,8 @@ public class PipedWriter extends Writer {
      *          or an I/O error occurs.
      */
     public void write(int c)  throws IOException {
+        // 写入一个字符c,调用 sink.receive(c)
+
         if (sink == null) {
             throw new IOException("Pipe not connected");
         }
@@ -142,6 +151,8 @@ public class PipedWriter extends Writer {
      *          or an I/O error occurs.
      */
     public void write(char cbuf[], int off, int len) throws IOException {
+        // 写入一个字符数组cbuf,调用 sink.receive(c)
+
         if (sink == null) {
             throw new IOException("Pipe not connected");
         } else if ((off | len | (off + len) | (cbuf.length - (off + len))) < 0) {
@@ -158,6 +169,8 @@ public class PipedWriter extends Writer {
      * @exception  IOException  if the pipe is closed, or an I/O error occurs.
      */
     public synchronized void flush() throws IOException {
+        // 强制刷新,将 sink 的线程唤醒,加快读取数据
+
         if (sink != null) {
             if (sink.closedByReader || closed) {
                 throw new IOException("Pipe closed");
@@ -176,8 +189,10 @@ public class PipedWriter extends Writer {
      * @exception  IOException  if an I/O error occurs.
      */
     public void close()  throws IOException {
+        // 关闭 -- 将closed标识设置为true
         closed = true;
         if (sink != null) {
+            // 触发 sink.receivedLast()
             sink.receivedLast();
         }
     }

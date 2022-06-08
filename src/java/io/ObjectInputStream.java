@@ -223,6 +223,7 @@ public class ObjectInputStream extends InputStream implements ObjectInput, Objec
     private static final HashMap<String, Class<?>> primClasses
         = new HashMap<>(8, 1.0F);
     static {
+        // 允许的基本数据类型 -- boolean\byte\char]short\int\long\float\double\void
         primClasses.put("boolean", boolean.class);
         primClasses.put("byte", byte.class);
         primClasses.put("char", char.class);

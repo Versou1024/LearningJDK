@@ -35,6 +35,7 @@ import java.io.IOException;
  * @since 1.5
  */
 public interface Closeable extends AutoCloseable {
+    // Closeable是可以关闭的数据的源或目标。调用 close 方法来释放对象所持有的资源（例如打开的文件）。
 
     /**
      * Closes this stream and releases any system resources associated

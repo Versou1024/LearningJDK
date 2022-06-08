@@ -45,12 +45,14 @@ import java.io.*;
  */
 public
 class PipedOutputStream extends OutputStream {
+    // 管道输出流
 
         /* REMIND: identification of the read and write sides needs to be
            more sophisticated.  Either using thread groups (but what about
            pipes within a thread?) or using finalization (but it may be a
            long time until the next GC). */
     private PipedInputStream sink;
+    // 关联的输入流
 
     /**
      * Creates a piped output stream connected to the specified piped
@@ -99,6 +101,7 @@ class PipedOutputStream extends OutputStream {
         } else if (sink != null || snk.connected) {
             throw new IOException("Already connected");
         }
+        // 将关联的管道输入流的in设置为-1,out设置为0,connect设为true
         sink = snk;
         snk.in = -1;
         snk.out = 0;
@@ -116,6 +119,7 @@ class PipedOutputStream extends OutputStream {
      *          closed, or if an I/O error occurs.
      */
     public void write(int b)  throws IOException {
+        // 写入的字节b,都会传递给管道输入流的缓冲区中
         if (sink == null) {
             throw new IOException("Pipe not connected");
         }
@@ -136,6 +140,7 @@ class PipedOutputStream extends OutputStream {
      *          closed, or if an I/O error occurs.
      */
     public void write(byte b[], int off, int len) throws IOException {
+        // 写入的字节数组b,从off到off+len都会传递给管道输入流的缓存区中
         if (sink == null) {
             throw new IOException("Pipe not connected");
         } else if (b == null) {
@@ -157,6 +162,7 @@ class PipedOutputStream extends OutputStream {
      * @exception IOException if an I/O error occurs.
      */
     public synchronized void flush() throws IOException {
+        // 刷新 -- 唤醒 sink
         if (sink != null) {
             synchronized (sink) {
                 sink.notifyAll();
@@ -172,7 +178,9 @@ class PipedOutputStream extends OutputStream {
      * @exception  IOException  if an I/O error occurs.
      */
     public void close()  throws IOException {
+        // 关闭管道输出流
         if (sink != null) {
+            // 提示管道输入流接受最后一个
             sink.receivedLast();
         }
     }

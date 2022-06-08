@@ -43,6 +43,9 @@ package java.nio.channels;
  */
 
 public interface CompletionHandler<V,A> {
+    // 在 AIO 中使用
+    // 当操作完成时调用 -- completed(V result, A attachment)
+    // 当操作失败时调用 -- failed(Throwable exc, A attachment)
 
     /**
      * Invoked when an operation has completed.

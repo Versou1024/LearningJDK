@@ -50,4 +50,5 @@ public interface Readable {
      * @throws java.nio.ReadOnlyBufferException if cb is a read only buffer
      */
     public int read(java.nio.CharBuffer cb) throws IOException;
+    // 尝试将字符读入指定的字符缓冲区
 }

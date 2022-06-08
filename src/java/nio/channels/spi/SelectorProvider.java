@@ -67,6 +67,17 @@ import sun.security.action.GetPropertyAction;
  */
 
 public abstract class SelectorProvider {
+    // 多路复用IO技术是操作系统的内核实现。
+    // 在不同的操作系统，甚至同一系列操作系统的版本中所实现的多路复用IO技术都是不一样的。
+    // 那么作为跨平台的JAVA JVM来说如何适应多种多样的多路复用IO技术实现呢?
+    // 面向对象的威力就显现出来了: 无论使用哪种实现方式，他们都会有“选择器”、“通道”、“缓存”这几个操作要素，
+    // 那么可以为不同的多路复用IO技术创建一个统一的抽象组，并且为不同的操作系统进行具体的实现。
+    // JAVA NIO中对各种多路复用IO的支持，主要的基础是java.nio.channels.spi.SelectorProvider抽象类，
+    // 其中的几个主要抽象方法包括:
+    // public abstract DatagramChannel openDatagramChannel(): 创建和这个操作系统匹配的UDP 通道实现。
+    // public abstract AbstractSelector openSelector(): 创建和这个操作系统匹配的NIO选择器，就像上文所述，不同的操作系统，不同的版本所默认支持的NIO模型是不一样的。
+    // public abstract ServerSocketChannel openServerSocketChannel(): 创建和这个NIO模型匹配的服务器端通道。
+    // public abstract SocketChannel openSocketChannel(): 创建和这个NIO模型匹配的TCP Socket套接字通道(用来反映客户端的TCP连接)
 
     private static final Object lock = new Object();
     private static SelectorProvider provider = null;

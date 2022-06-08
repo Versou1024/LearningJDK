@@ -34,14 +34,19 @@ package java.io;
  */
 
 public class PipedReader extends Reader {
+
+    // 通信通道关闭方 -- closedByWriter/closedByReader
     boolean closedByWriter = false;
     boolean closedByReader = false;
+
+    // 连接是否成功的表示 -- connect
     boolean connected = false;
 
     /* REMIND: identification of the read and write sides needs to be
        more sophisticated.  Either using thread groups (but what about
        pipes within a thread?) or using finalization (but it may be a
        long time until the next GC). */
+    // 通信双方的线程 -- readSize\writeSide
     Thread readSide;
     Thread writeSide;
 
@@ -53,7 +58,7 @@ public class PipedReader extends Reader {
     /**
      * The circular buffer into which incoming data is placed.
      */
-    char buffer[];
+    char buffer[]; // 缓冲区 -- 用来接受PipedWriter写过来的字符
 
     /**
      * The index of the position in the circular buffer at which the
@@ -61,13 +66,13 @@ public class PipedReader extends Reader {
      * piped writer. <code>in&lt;0</code> implies the buffer is empty,
      * <code>in==out</code> implies the buffer is full
      */
-    int in = -1;
+    int in = -1; // PipedWriter 写入的位置 in
 
     /**
      * The index of the position in the circular buffer at which the next
      * character of data will be read by this piped reader.
      */
-    int out = 0;
+    int out = 0; // PipedReader 读出的位置 out
 
     /**
      * Creates a <code>PipedReader</code> so
@@ -128,6 +133,8 @@ public class PipedReader extends Reader {
     }
 
     private void initPipe(int pipeSize) {
+        // 初始化接受字符的数组 buffer
+
         if (pipeSize <= 0) {
             throw new IllegalArgumentException("Pipe size <= 0");
         }
@@ -158,6 +165,8 @@ public class PipedReader extends Reader {
      * @exception  IOException  if an I/O error occurs.
      */
     public void connect(PipedWriter src) throws IOException {
+        // 设置关联关系
+
         src.connect(this);
     }
 
@@ -166,6 +175,8 @@ public class PipedReader extends Reader {
      * available.
      */
     synchronized void receive(int c) throws IOException {
+
+        // 1. 检查连接状态,是否已经被关闭,是否有readSide
         if (!connected) {
             throw new IOException("Pipe not connected");
         } else if (closedByWriter || closedByReader) {
@@ -174,12 +185,16 @@ public class PipedReader extends Reader {
             throw new IOException("Read end dead");
         }
 
+        // 2. 记录写者 writeSide 线程
         writeSide = Thread.currentThread();
+        // 3.in == out 就表示buffer已经满啦或者buffer已经是空的啦
+        // 需要知道一点 -- 这个buffer是循环利用的哦,当in写到bufferw尾部时,会循环写入哦,将in改为0
         while (in == out) {
             if ((readSide != null) && !readSide.isAlive()) {
                 throw new IOException("Pipe broken");
             }
             /* full: kick any waiting readers */
+            // 唤醒任何等待的readers -- 快速消费buffer,从而将out
             notifyAll();
             try {
                 wait(1000);
@@ -187,11 +202,15 @@ public class PipedReader extends Reader {
                 throw new java.io.InterruptedIOException();
             }
         }
+        // in 小于 0 只有在初始化的时候,in=-1
         if (in < 0) {
             in = 0;
             out = 0;
         }
+        // 写入到 buffer[in] 的位置上
         buffer[in++] = (char) c;
+        // 超出buffer将in设为0,重新开始写入 -- 循环数组buffer
+        // 这时 out > in,而在这之前是 in > out
         if (in >= buffer.length) {
             in = 0;
         }
@@ -258,10 +277,13 @@ public class PipedReader extends Reader {
                 throw new java.io.InterruptedIOException();
             }
         }
+        // out 当前输出的字符的位置
         int ret = buffer[out++];
+        // 下一轮循环,开始out=0
         if (out >= buffer.length) {
             out = 0;
         }
+        // 满或者空
         if (in == out) {
             /* now empty */
             in = -1;

@@ -54,20 +54,107 @@ import java.nio.charset.UnsupportedCharsetException;
  * @since      JDK1.0
  */
 
-public class PrintStream extends FilterOutputStream
-    implements Appendable, Closeable
-{
+public class PrintStream extends FilterOutputStream implements Appendable, Closeable {
+    // 将“输出流out”作为PrintStream的输出流，不会自动flush，并且采用默认字符集
+    // 所谓“自动flush”，就是每次执行print(), println(), write()函数，都会调用flush()函数；
+    // 而“不自动flush”，则需要我们手动调用flush()接口。
+    // PrintStream(OutputStream out)
 
+    // 将“输出流out”作为PrintStream的输出流，自动flush，并且采用默认字符集。
+    //PrintStream(OutputStream out, boolean autoFlush)
+
+    // 将“输出流out”作为PrintStream的输出流，自动flush，采用charsetName字符集。
+    //PrintStream(OutputStream out, boolean autoFlush, String charsetName)
+    // 创建file对应的FileOutputStream，然后将该FileOutputStream作为PrintStream的输出流，不自动flush，采用默认字符集。
+    //PrintStream(File file)
+    // 创建file对应的FileOutputStream，然后将该FileOutputStream作为PrintStream的输出流，不自动flush，采用charsetName字符集。
+    //PrintStream(File file, String charsetName)
+    // 创建fileName对应的FileOutputStream，然后将该FileOutputStream作为PrintStream的输出流，不自动flush，采用默认字符集。
+    //PrintStream(String fileName)
+    // 创建fileName对应的FileOutputStream，然后将该FileOutputStream作为PrintStream的输出流，不自动flush，采用charsetName字符集。
+    //PrintStream(String fileName, String charsetName)
+    //
+    // 将“字符c”追加到“PrintStream输出流中”
+    //PrintStream     append(char c)
+    // 将“字符序列从start(包括)到end(不包括)的全部字符”追加到“PrintStream输出流中”
+    //PrintStream     append(CharSequence charSequence, int start, int end)
+    // 将“字符序列的全部字符”追加到“PrintStream输出流中”
+    //PrintStream     append(CharSequence charSequence)
+    // flush“PrintStream输出流缓冲中的数据”，并检查错误
+    //boolean     checkError()
+    // 关闭“PrintStream输出流”
+    //synchronized void     close()
+    // flush“PrintStream输出流缓冲中的数据”。
+    // 例如，PrintStream装饰的是FileOutputStream，则调用flush时会将数据写入到文件中
+    //synchronized void     flush()
+    // 根据“Locale值(区域属性)”来格式化数据
+    //PrintStream     format(Locale l, String format, Object... args)
+    // 根据“默认的Locale值(区域属性)”来格式化数据
+    //PrintStream     format(String format, Object... args)
+    // 将“float数据f对应的字符串”写入到“PrintStream输出流”中，print实际调用的是write函数
+    //void     print(float f)
+    // 将“double数据d对应的字符串”写入到“PrintStream输出流”中，print实际调用的是write函数
+    //void     print(double d)
+    // 将“字符串数据str”写入到“PrintStream输出流”中，print实际调用的是write函数
+    //synchronized void     print(String str)
+    // 将“对象o对应的字符串”写入到“PrintStream输出流”中，print实际调用的是write函数
+    //void     print(Object o)
+    // 将“字符c对应的字符串”写入到“PrintStream输出流”中，print实际调用的是write函数
+    //void     print(char c)
+    // 将“字符数组chars对应的字符串”写入到“PrintStream输出流”中，print实际调用的是write函数
+    //void     print(char[] chars)
+    // 将“long型数据l对应的字符串”写入到“PrintStream输出流”中，print实际调用的是write函数
+    //void     print(long l)
+    // 将“int数据i对应的字符串”写入到“PrintStream输出流”中，print实际调用的是write函数
+    //void     print(int i)
+    // 将“boolean数据b对应的字符串”写入到“PrintStream输出流”中，print实际调用的是write函数
+    //void     print(boolean b)
+    // 将“数据args”根据“Locale值(区域属性)”按照format格式化，并写入到“PrintStream输出流”中
+    //PrintStream     printf(Locale l, String format, Object... args)
+    // 将“数据args”根据“默认Locale值(区域属性)”按照format格式化，并写入到“PrintStream输出流”中
+    //PrintStream     printf(String format, Object... args)
+    // 将“换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //void     println()
+    // 将“float数据对应的字符串+换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //void     println(float f)
+    // 将“int数据对应的字符串+换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //void     println(int i)
+    // 将“long数据对应的字符串+换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //void     println(long l)
+    // 将“对象o对应的字符串+换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //void     println(Object o)
+    // 将“字符数组chars对应的字符串+换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //void     println(char[] chars)
+    // 将“字符串str+换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //synchronized void     println(String str)
+    // 将“字符c对应的字符串+换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //void     println(char c)
+    // 将“double数据对应的字符串+换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //void     println(double d)
+    // 将“boolean数据对应的字符串+换行符”写入到“PrintStream输出流”中，println实际调用的是write函数
+    //void     println(boolean b)
+    // 将数据oneByte写入到“PrintStream输出流”中。oneByte虽然是int类型，但实际只会写入一个字节
+    //synchronized void     write(int oneByte)
+    // 将“buffer中从offset开始的length个字节”写入到“PrintStream输出流”中。
+    //void     write(byte[] buffer, int offset, int length)
+
+    // 自动flush
+    // 所谓“自动flush”，就是每次执行print(), println(), write()函数，如果有换行符,都会调用flush()函数；
+    // 而“不自动flush”，则需要我们手动调用flush()接口。
     private final boolean autoFlush;
+    // PrintStream是否右产生异常。当PrintStream有异常产生时，会被本身捕获，并设置trouble为true
     private boolean trouble = false;
-    private Formatter formatter;
+    private Formatter formatter; // 转换器
 
+    // BufferedWriter对象，用于实现“PrintStream支持字符集”。
+    // 因为PrintStream是OutputStream的子类，所以它本身不支持字符串,是用来支持字节的
+    // 但是BufferedWriter支持字符集，因此可以通过OutputStreamWriter创建PrintStream对应的BufferedWriter对象，从而支持字符集。
     /**
      * Track both the text- and character-output streams, so that their buffers
      * can be flushed without flushing the entire stream.
      */
-    private BufferedWriter textOut;
-    private OutputStreamWriter charOut;
+    private BufferedWriter textOut; // 带有缓冲区功能的writer
+    private OutputStreamWriter charOut; // 输出流转为writer
 
     /**
      * requireNonNull is explicitly declared here so as not to create an extra
@@ -321,6 +408,7 @@ public class PrintStream extends FilterOutputStream
 
     /** Check to make sure that the stream has not been closed */
     private void ensureOpen() throws IOException {
+        // 确保 输出流 out 是存在的哦
         if (out == null)
             throw new IOException("Stream closed");
     }
@@ -499,10 +587,15 @@ public class PrintStream extends FilterOutputStream
     private void write(char buf[]) {
         try {
             synchronized (this) {
+                // 1. 确保open
                 ensureOpen();
+                // 2. 将字符数组写入到缓冲区textOut中
                 textOut.write(buf);
-                textOut.flushBuffer();
-                charOut.flushBuffer();
+                // 3. 清空buffer到输出流charOut中
+                textOut.flushBuffer(); // textOut 是 BufferedWriter 带有缓冲区的字符输出 -- 它所包装的writer就是 OutputStreamWriter
+                // 4. 清空charOut中缓存的字符,输出到字节中
+                charOut.flushBuffer(); // charOut 是 OutputStreamWriter 能够将字符变为对应的字节,输出到 outputStream 上,对应这里的printStream
+                // 5. 是否自动刷新 -- 有换行符就自动刷新,将输出流中的字符的字节最终输出过去
                 if (autoFlush) {
                     for (int i = 0; i < buf.length; i++)
                         if (buf[i] == '\n')
@@ -580,6 +673,7 @@ public class PrintStream extends FilterOutputStream
      * @param      c   The <code>char</code> to be printed
      */
     public void print(char c) {
+        // 实质上调用 write 方法
         write(String.valueOf(c));
     }
 

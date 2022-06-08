@@ -45,21 +45,24 @@ import sun.nio.ch.FileChannelImpl;
  * @see     java.nio.file.Files#newInputStream
  * @since   JDK1.0
  */
-public
-class FileInputStream extends InputStream
-{
+public class FileInputStream extends InputStream {
+    // FileInputStream从文件系统中的文件获取输入字节。可用的文件取决于主机环境。
+    // FileInputStream用于读取原始字节流，例如图像数据。要读取字符流，请考虑使用FileReader 。
+
+    // //装饰器的代码特征: 被装饰的对象一般是装饰器的成员变量
+
     /* File Descriptor - handle to the open file */
-    private final FileDescriptor fd;
+    private final FileDescriptor fd; // 文件描述符
 
     /**
      * The path of the referenced file
      * (null if the stream is created with a file descriptor)
      */
-    private final String path;
+    private final String path; // 文件路径
 
-    private FileChannel channel = null;
+    private FileChannel channel = null; // 通道
 
-    private final Object closeLock = new Object();
+    private final Object closeLock = new Object(); //;
     private volatile boolean closed = false;
 
     /**
@@ -121,6 +124,7 @@ class FileInputStream extends InputStream
      * @see        java.lang.SecurityManager#checkRead(java.lang.String)
      */
     public FileInputStream(File file) throws FileNotFoundException {
+        // 1. 检查文件路径是否存在,文件路径是否为读
         String name = (file != null ? file.getPath() : null);
         SecurityManager security = System.getSecurityManager();
         if (security != null) {
@@ -132,7 +136,9 @@ class FileInputStream extends InputStream
         if (file.isInvalid()) {
             throw new FileNotFoundException("Invalid file path");
         }
+        // 2. 创建文件描述符
         fd = new FileDescriptor();
+        // 3. 将 Closeable 附加到此 FD 以进行跟踪。需要时将父引用添加到 otherParents 以使 closeAll 更简单
         fd.attach(this);
         path = name;
         open(name);

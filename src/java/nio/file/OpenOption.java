@@ -42,4 +42,6 @@ package java.nio.file;
  */
 
 public interface OpenOption {
+    // 配置如何打开或创建文件的对象
+    // OpenOption在打开或创建文件时由newOutputStream 、 newByteChannel 、 FileChannel.open和AsynchronousFileChannel.open等方法使用。
 }

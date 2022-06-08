@@ -34,19 +34,19 @@ package java.io;
  */
 public class CharArrayReader extends Reader {
     /** The character buffer. */
-    protected char buf[];
+    protected char buf[]; // 输入缓冲区
 
     /** The current buffer position. */
-    protected int pos;
+    protected int pos; // 当前缓冲区的位置
 
     /** The position of mark in buffer. */
-    protected int markedPos = 0;
+    protected int markedPos = 0; // 标记的位置
 
     /**
      *  The index of the end of this buffer.  There is not valid
      *  data at or beyond this index.
      */
-    protected int count;
+    protected int count; // 字符总数
 
     /**
      * Creates a CharArrayReader from the specified array of chars.
@@ -88,6 +88,7 @@ public class CharArrayReader extends Reader {
 
     /** Checks to make sure that the stream has not been closed */
     private void ensureOpen() throws IOException {
+        // 检查以确保流尚未关闭
         if (buf == null)
             throw new IOException("Stream closed");
     }
@@ -98,6 +99,7 @@ public class CharArrayReader extends Reader {
      * @exception   IOException  If an I/O error occurs
      */
     public int read() throws IOException {
+        // 从缓冲区读出一个字符
         synchronized (lock) {
             ensureOpen();
             if (pos >= count)

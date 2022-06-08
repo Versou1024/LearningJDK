@@ -75,6 +75,9 @@ import sun.nio.cs.StreamEncoder;
  */
 
 public class OutputStreamWriter extends Writer {
+    // Writer -> OutputStreamWriter
+    // 字符 -> 字节
+    // 用户可以通过Writer的功能写入char,被StreamEncoder转换为字节后再通过OutputStream的write()写入目的地
 
     private final StreamEncoder se;
 

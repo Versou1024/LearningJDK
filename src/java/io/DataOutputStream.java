@@ -40,12 +40,12 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
      * The number of bytes written to the data output stream so far.
      * If this counter overflows, it will be wrapped to Integer.MAX_VALUE.
      */
-    protected int written;
+    protected int written; // “数据输出流”的字节数
 
     /**
      * bytearr is initialized on demand by writeUTF
      */
-    private byte[] bytearr = null;
+    private byte[] bytearr = null; // “数据输出流”对应的字节数组
 
     /**
      * Creates a new data output stream to write data to the specified
@@ -57,6 +57,7 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
      * @see     java.io.FilterOutputStream#out
      */
     public DataOutputStream(OutputStream out) {
+        // 构造函数
         super(out);
     }
 
@@ -65,6 +66,7 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
      * until it reaches Integer.MAX_VALUE.
      */
     private void incCount(int value) {
+        // 增加“输出值”
         int temp = written + value;
         if (temp < 0) {
             temp = Integer.MAX_VALUE;
@@ -85,6 +87,7 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
      * @see        java.io.FilterOutputStream#out
      */
     public synchronized void write(int b) throws IOException {
+        // 将int类型的值写入到“数据输出流”中
         out.write(b);
         incCount(1);
     }
@@ -120,6 +123,7 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
      * @see        java.io.OutputStream#flush()
      */
     public void flush() throws IOException {
+        // 清空缓冲，即将缓冲中的数据都写入到输出流
         out.flush();
     }
 
@@ -136,6 +140,7 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
      * @see        java.io.FilterOutputStream#out
      */
     public final void writeBoolean(boolean v) throws IOException {
+        // 将boolean类型的值写入到“数据输出流”中
         out.write(v ? 1 : 0);
         incCount(1);
     }
@@ -164,6 +169,8 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
      * @see        java.io.FilterOutputStream#out
      */
     public final void writeShort(int v) throws IOException {
+        // 将short类型的值写入到“数据输出流”中
+        // 注意：short占2个字节
         out.write((v >>> 8) & 0xFF);
         out.write((v >>> 0) & 0xFF);
         incCount(2);
@@ -194,6 +201,8 @@ class DataOutputStream extends FilterOutputStream implements DataOutput {
      * @see        java.io.FilterOutputStream#out
      */
     public final void writeInt(int v) throws IOException {
+        // 将int类型的值写入到“数据输出流”中
+        // 注意：int占4个字节
         out.write((v >>> 24) & 0xFF);
         out.write((v >>> 16) & 0xFF);
         out.write((v >>>  8) & 0xFF);

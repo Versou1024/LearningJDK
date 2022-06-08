@@ -44,6 +44,7 @@ package java.io;
  * @since   JDK1.0
  */
 public abstract class OutputStream implements Closeable, Flushable {
+    // 输出流 --
     /**
      * Writes the specified byte to this output stream. The general
      * contract for <code>write</code> is that one byte is written
@@ -60,6 +61,8 @@ public abstract class OutputStream implements Closeable, Flushable {
      *             output stream has been closed.
      */
     public abstract void write(int b) throws IOException;
+    // 将指定单个字节写入此输出流
+    // 写入一个字节，可以看到这里的参数是一个 int 类型，对应上面的读方法，int 类型的 32 位，只有低 8 位才写入，高 24 位将舍弃。
 
     /**
      * Writes <code>b.length</code> bytes from the specified byte array
@@ -74,6 +77,9 @@ public abstract class OutputStream implements Closeable, Flushable {
     public void write(byte b[]) throws IOException {
         write(b, 0, b.length);
     }
+    // 将指定字节数组中的b.length个字节写入此输出流。 write(b)的一般约定是它应该与调用write(b, 0, b.length)具有完全相同的效果。
+    // 将字节数组b全部写入到此输出流中
+    // 将数组中的所有字节写入，实际调用的是write(byte b[], int off, int len)方法
 
     /**
      * Writes <code>len</code> bytes from the specified byte array
@@ -104,6 +110,7 @@ public abstract class OutputStream implements Closeable, Flushable {
      *             stream is closed.
      */
     public void write(byte b[], int off, int len) throws IOException {
+        // 1. 就是利用 write() 将字节数组b[] 中off~off+len的字节 一个个的写入此输出流中
         if (b == null) {
             throw new NullPointerException();
         } else if ((off < 0) || (off > b.length) || (len < 0) ||
@@ -116,6 +123,11 @@ public abstract class OutputStream implements Closeable, Flushable {
             write(b[off + i]);
         }
     }
+    // 将指定字节数组中的off~off+len字节写入此输出流。
+    // write(b, off, len) 的一般约定是数组b中的一些字节按顺序写入输出流；元素b[off]是写入的第一个字节， b[off+len-1]是此操作写入的最后一个字节。
+    // OutputStream的write方法在要写出的每个字节上调用一个参数的 write 方法。鼓励子类重写此方法并提供更有效的实现。
+    //      如果b为null ，则抛出NullPointerException 。
+    //      如果off为负数，或len为负数，或off+len大于数组b的长度，则抛出IndexOutOfBoundsException 。
 
     /**
      * Flushes this output stream and forces any buffered output bytes
@@ -137,6 +149,11 @@ public abstract class OutputStream implements Closeable, Flushable {
      */
     public void flush() throws IOException {
     }
+    // 刷新此输出流并强制将缓冲的字节写入到输出流中。
+    // flush()的一般约定是调用它来表示，如果先前写入的任何字节已被放入输出流的实现缓冲区，则应立即将这些字节写入其预期目的地。
+    // 如果此流的预期目的地是底层操作系统提供的抽象，
+    //      例如文件，则刷新流仅保证先前写入流的字节被传递给操作系统进行写入；
+    //      它不能保证它们实际上被写入了物理设备，例如磁盘驱动器。
 
     /**
      * Closes this output stream and releases any system resources
@@ -150,5 +167,6 @@ public abstract class OutputStream implements Closeable, Flushable {
      */
     public void close() throws IOException {
     }
+    // 关闭此输出流并释放与此流关联的所有系统资源。 close的一般约定是它关闭输出流。关闭的流无法执行输出操作，也无法重新打开。
 
 }
