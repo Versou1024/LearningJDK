@@ -82,6 +82,7 @@ import java.util.concurrent.Executor;
  * @see DatabaseMetaData
  */
 public interface Connection  extends Wrapper, AutoCloseable {
+    // java.sql.Connection 即从驱动器Driver中获取的连接对象
 
     /**
      * Creates a <code>Statement</code> object for sending
@@ -102,6 +103,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * or this method is called on a closed connection
      */
     Statement createStatement() throws SQLException;
+    // 构造无法使用占位符的Statement
 
     /**
      * Creates a <code>PreparedStatement</code> object for sending
@@ -135,8 +137,8 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @exception SQLException if a database access error occurs
      * or this method is called on a closed connection
      */
-    PreparedStatement prepareStatement(String sql)
-        throws SQLException;
+    PreparedStatement prepareStatement(String sql) throws SQLException;
+    // 构造可使用占位符的PreparedStatement
 
     /**
      * Creates a <code>CallableStatement</code> object for calling
@@ -169,6 +171,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * or this method is called on a closed connection
      */
     CallableStatement prepareCall(String sql) throws SQLException;
+    // 可回调的语句 CallableStatement
 
     /**
      * Converts the given SQL statement into the system's native SQL grammar.
@@ -183,6 +186,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * or this method is called on a closed connection
      */
     String nativeSQL(String sql) throws SQLException;
+    // 给定的 SQL 语句转换为系统的原生 SQL 语法
 
     /**
      * Sets this connection's auto-commit mode to the given state.
@@ -220,6 +224,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @see #getAutoCommit
      */
     void setAutoCommit(boolean autoCommit) throws SQLException;
+    // 设置是否自动提交
 
     /**
      * Retrieves the current auto-commit mode for this <code>Connection</code>
@@ -247,6 +252,8 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @see #setAutoCommit
      */
     void commit() throws SQLException;
+    // 提交
+    // 使自上次提交/回滚以来所做的所有更改永久化，并释放此Connection对象当前持有的所有数据库锁。仅当禁用自动提交模式时才应使用此方法。
 
     /**
      * Undoes all changes made in the current transaction
@@ -261,6 +268,8 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @see #setAutoCommit
      */
     void rollback() throws SQLException;
+    // 回滚
+    // 撤消在当前事务中所做的所有更改并释放此Connection对象当前持有的所有数据库锁。仅当禁用自动提交模式时才应使用此方法。
 
     /**
      * Releases this <code>Connection</code> object's database and JDBC resources
@@ -278,6 +287,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @exception SQLException SQLException if a database access error occurs
      */
     void close() throws SQLException;
+    // 立即释放此Connection对象的数据库和 JDBC 资源，而不是等待它们自动释放。
 
     /**
      * Retrieves whether this <code>Connection</code> object has been
@@ -297,6 +307,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @exception SQLException if a database access error occurs
      */
     boolean isClosed() throws SQLException;
+    // 检索此Connection对象是否已关闭
 
     //======================================================================
     // Advanced features:
@@ -315,6 +326,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * or this method is called on a closed connection
      */
     DatabaseMetaData getMetaData() throws SQLException;
+    // 检索DatabaseMetaData对象，该对象包含有关此Connection对象表示连接的数据库的元数据。元数据包括有关数据库表、其支持的 SQL 语法、其存储过程、此连接的功能等的信息。
 
     /**
      * Puts this connection in read-only mode as a hint to the driver to enable
@@ -329,6 +341,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      *            method is called during a transaction
      */
     void setReadOnly(boolean readOnly) throws SQLException;
+    // 将此连接置于只读模式，作为对驱动程序启用数据库优化的提示
 
     /**
      * Retrieves whether this <code>Connection</code>
@@ -363,6 +376,8 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @see #getCatalog
      */
     void setCatalog(String catalog) throws SQLException;
+    // 设置给定的目录名称，以便选择要在其中工作的Connection对象的数据库的子空间。
+    //如果驱动程序不支持目录，它将默默地忽略此请求。
 
     /**
      * Retrieves this <code>Connection</code> object's current catalog name.
@@ -374,10 +389,12 @@ public interface Connection  extends Wrapper, AutoCloseable {
      */
     String getCatalog() throws SQLException;
 
+    // 事务级别
+
     /**
      * A constant indicating that transactions are not supported.
      */
-    int TRANSACTION_NONE             = 0;
+    int TRANSACTION_NONE             = 0; // 无事务
 
     /**
      * A constant indicating that
@@ -387,7 +404,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * committed (a "dirty read").  If any of the changes are rolled back,
      * the second transaction will have retrieved an invalid row.
      */
-    int TRANSACTION_READ_UNCOMMITTED = 1;
+    int TRANSACTION_READ_UNCOMMITTED = 1; // 事务读取未提交
 
     /**
      * A constant indicating that
@@ -395,7 +412,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * reads can occur.  This level only prohibits a transaction
      * from reading a row with uncommitted changes in it.
      */
-    int TRANSACTION_READ_COMMITTED   = 2;
+    int TRANSACTION_READ_COMMITTED   = 2; // 事务读取提交的
 
     /**
      * A constant indicating that
@@ -407,7 +424,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * rereads the row, getting different values the second time
      * (a "non-repeatable read").
      */
-    int TRANSACTION_REPEATABLE_READ  = 4;
+    int TRANSACTION_REPEATABLE_READ  = 4; // 重复读
 
     /**
      * A constant indicating that
@@ -420,7 +437,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * rereads for the same condition, retrieving the additional
      * "phantom" row in the second read.
      */
-    int TRANSACTION_SERIALIZABLE     = 8;
+    int TRANSACTION_SERIALIZABLE     = 8; // 序列化
 
     /**
      * Attempts to change the transaction isolation level for this
@@ -446,6 +463,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @see #getTransactionIsolation
      */
     void setTransactionIsolation(int level) throws SQLException;
+    // 设置事务级别
 
     /**
      * Retrieves this <code>Connection</code> object's current
@@ -486,6 +504,8 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @see SQLWarning
      */
     SQLWarning getWarnings() throws SQLException;
+    // SQL 警告
+    // 检索对此Connection对象的调用报告的第一个警告。如果有多个警告，则后续警告将链接到第一个警告，并且可以通过对先前检索到的警告调用方法SQLWarning.getNextWarning来检索。
 
     /**
      * Clears all warnings reported for this <code>Connection</code> object.
@@ -497,6 +517,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * or this method is called on a closed connection
      */
     void clearWarnings() throws SQLException;
+    // 清除警告
 
 
     //--------------------------JDBC 2.0-----------------------------
@@ -567,6 +588,9 @@ public interface Connection  extends Wrapper, AutoCloseable {
     PreparedStatement prepareStatement(String sql, int resultSetType,
                                        int resultSetConcurrency)
         throws SQLException;
+    //  sql – 一个String对象，它是要发送到数据库的 SQL 语句；可能包含一个或多个“？”输入参数
+    //  resultSetType – 结果集类型； ResultSet.TYPE_FORWARD_ONLY 、 ResultSet.TYPE_SCROLL_INSENSITIVE或ResultSet.TYPE_SCROLL_SENSITIVE之一
+    //  resultSetConcurrency – 并发类型； ResultSet.CONCUR_READ_ONLY或ResultSet.CONCUR_UPDATABLE之一
 
     /**
      * Creates a <code>CallableStatement</code> object that will generate
@@ -627,6 +651,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @see #setTypeMap
      */
     java.util.Map<String,Class<?>> getTypeMap() throws SQLException;
+    // 与此Connection对象关联的java.util.Map对象
 
     /**
      * Installs the given <code>TypeMap</code> object as the type map for
@@ -715,6 +740,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @since 1.4
      */
     Savepoint setSavepoint() throws SQLException;
+    // 在当前事务中创建一个未命名的保存点并返回代表它的新Savepoint对象。
 
     /**
      * Creates a savepoint with the given name in the current transaction
@@ -736,6 +762,8 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @since 1.4
      */
     Savepoint setSavepoint(String name) throws SQLException;
+    // 在当前事务中创建具有给定名称的保存点，并返回代表它的新Savepoint对象。
+    // 如果在活动事务之外调用 setSavepoint，则事务将在这个新创建的保存点处启动
 
     /**
      * Undoes all changes made after the given <code>Savepoint</code> object
@@ -757,6 +785,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @since 1.4
      */
     void rollback(Savepoint savepoint) throws SQLException;
+    // 撤消设置给定Savepoint对象后所做的所有更改。
 
     /**
      * Removes the specified <code>Savepoint</code>  and subsequent <code>Savepoint</code> objects from the current
@@ -773,6 +802,7 @@ public interface Connection  extends Wrapper, AutoCloseable {
      * @since 1.4
      */
     void releaseSavepoint(Savepoint savepoint) throws SQLException;
+    // 从当前事务中删除指定的Savepoint和后续Savepoint对象。删除后对保存点的任何引用都将导致SQLException 。
 
     /**
      * Creates a <code>Statement</code> object that will generate
@@ -1335,6 +1365,7 @@ throws SQLException;
      * @since 1.7
      */
     String getSchema() throws SQLException;
+    // 检索此Connection对象的当前架构名称
 
     /**
      * Terminates an open connection.  Calling <code>abort</code> results in:
@@ -1373,6 +1404,11 @@ throws SQLException;
      * @since 1.7
      */
     void abort(Executor executor) throws SQLException;
+    // 终止打开的连接。调用abort会导致：
+    //      标记为Close的连接
+    //      关闭与数据库的任何物理连接
+    //      释放连接使用的资源
+    //      确保当前正在访问连接的任何线程都将完成或抛出SQLException 。
 
     /**
      *
@@ -1465,6 +1501,8 @@ throws SQLException;
      * @since 1.7
      */
     void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException;
+    // 设置Connection或从Connection创建的对象等待数据库回复任何请求的最长时间。如果任何请求仍未得到答复，则等待方法将返回SQLException ，
+    // 并且从Connection创建的Connection或对象将被标记为已关闭。
 
 
     /**

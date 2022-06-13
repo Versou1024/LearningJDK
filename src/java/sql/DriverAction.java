@@ -41,6 +41,8 @@ package java.sql;
  * @since 1.8
  */
 public interface DriverAction {
+    // DriverManager.deregisterDriver(Driver)调用的方法，用于通知 JDBC 驱动程序它已被取消注册时驱动器可以完成做的动作
+
     /**
      * Method called by
      * {@linkplain DriverManager#deregisterDriver(Driver) }

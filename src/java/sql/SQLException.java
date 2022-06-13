@@ -356,12 +356,12 @@ public class SQLException extends java.lang.Exception
     /**
          * @serial
          */
-    private String SQLState;
+    private String SQLState; // SQL状态
 
         /**
          * @serial
          */
-    private int vendorCode;
+    private int vendorCode; // 提供商对应的额错误码
 
         /**
          * @serial

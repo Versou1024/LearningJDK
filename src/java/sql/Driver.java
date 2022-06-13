@@ -56,6 +56,12 @@ import java.util.logging.Logger;
  * @see DriverAction
  */
 public interface Driver {
+    // 每个驱动程序类必须实现的接口。
+    // Java SQL 框架允许多个数据库驱动程序。
+    // 每个驱动程序都应提供一个实现驱动程序接口的类。
+    // DriverManager 将尝试加载尽可能多的驱动程序，然后对于任何给定的连接请求，它将依次要求每个驱动程序尝试连接到目标 URL。
+    // 强烈建议每个 Driver 类应该是小而独立的，这样 Driver 类就可以被加载和查询，而不需要引入大量的支持代码。
+    // 当一个 Driver 类被加载时，它应该创建一个自身的实例并将其注册到 DriverManager。这意味着用户可以通过调用来加载和注册驱动程序：
 
     /**
      * Attempts to make a database connection to the given URL.
@@ -89,6 +95,8 @@ public interface Driver {
      */
     Connection connect(String url, java.util.Properties info)
         throws SQLException;
+    // 尝试与给定 URL 建立数据库连接。如果驱动程序意识到连接到给定 URL 的驱动程序类型错误，则应返回“null”。
+    // 这很常见，因为当要求 DriverManager 连接到给定的 URL 时，它会依次将 URL 传递给每个加载的驱动程序,即调用每个 Driver.connect() 方法
 
     /**
      * Retrieves whether the driver thinks that it can open a connection
@@ -103,6 +111,10 @@ public interface Driver {
      * {@code null}
      */
     boolean acceptsURL(String url) throws SQLException;
+    // 检索驱动程序是否认为它可以打开到给定 URL 的连接。
+    // 通常，如果驱动程序理解 URL 中指定的子协议，则返回true ，否则返回false。
+    // 例如: jdbc:mysql://172.25.50.28/sdkdeveloper
+    // 根据协议就是 jdbc:mysql 因此 com.mysql.cj.jdbc.Driver 驱动器是可以接受该url
 
 
     /**
@@ -127,6 +139,7 @@ public interface Driver {
     DriverPropertyInfo[] getPropertyInfo(String url, java.util.Properties info)
                          throws SQLException;
 
+    // 驱动器的主/次版本号
 
     /**
      * Retrieves the driver's major version number. Initially this should be 1.
@@ -162,6 +175,7 @@ public interface Driver {
      *         otherwise
      */
     boolean jdbcCompliant();
+    // 是否完整支持JDBC API和完全支持SQL 92入门级
 
     //------------------------- JDBC 4.1 -----------------------------------
 

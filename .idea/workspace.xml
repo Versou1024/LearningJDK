@@ -4,51 +4,25 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3e4ce410-3980-4f6a-a1fa-b5a004fc9b31" name="Default Changelist" comment="添加 rt.jar">
+    <list default="true" id="3e4ce410-3980-4f6a-a1fa-b5a004fc9b31" name="Default Changelist" comment="阅读 - io">
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/BufferedInputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/BufferedInputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/BufferedOutputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/BufferedOutputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/ByteArrayInputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/ByteArrayInputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/ByteArrayOutputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/ByteArrayOutputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/CharArrayReader.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/CharArrayReader.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/CharArrayWriter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/CharArrayWriter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/Closeable.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/Closeable.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/DataInput.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/DataInput.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/DataInputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/DataInputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/DataOutputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/DataOutputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/File.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/File.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/FileDescriptor.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/FileDescriptor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/FileInputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/FileInputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/FileSystem.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/FileSystem.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/FileWriter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/FileWriter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/FilterInputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/FilterInputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/FilterOutputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/FilterOutputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/Flushable.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/Flushable.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/InputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/InputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/InputStreamReader.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/InputStreamReader.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/ObjectInput.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/ObjectInput.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/ObjectInputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/ObjectInputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/OutputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/OutputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/OutputStreamWriter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/OutputStreamWriter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/PipedInputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/PipedInputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/PipedOutputStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/PipedOutputStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/PipedReader.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/PipedReader.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/PipedWriter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/PipedWriter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/PrintStream.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/PrintStream.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/Reader.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/Reader.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/io/Writer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/io/Writer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/lang/Readable.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/lang/Readable.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/channels/AsynchronousChannelGroup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/channels/AsynchronousChannelGroup.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/channels/AsynchronousServerSocketChannel.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/channels/AsynchronousServerSocketChannel.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/channels/AsynchronousSocketChannel.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/channels/AsynchronousSocketChannel.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/channels/Channel.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/channels/Channel.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/channels/CompletionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/channels/CompletionHandler.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/channels/FileChannel.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/channels/FileChannel.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/channels/spi/SelectorProvider.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/channels/spi/SelectorProvider.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/file/CopyOption.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/file/CopyOption.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/file/LinkOption.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/file/LinkOption.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/file/OpenOption.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/file/OpenOption.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/java/nio/file/StandardOpenOption.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/nio/file/StandardOpenOption.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/Connection.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/Connection.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/Driver.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/Driver.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/DriverAction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/DriverAction.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/DriverManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/DriverManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/JDBCType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/JDBCType.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/PreparedStatement.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/PreparedStatement.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/ResultSet.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/ResultSet.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/ResultSetMetaData.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/ResultSetMetaData.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/SQLException.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/SQLException.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/SQLType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/SQLType.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/Savepoint.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/Savepoint.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/Statement.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/Statement.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/Time.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/Time.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/Types.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/Types.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/sql/Wrapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/sql/Wrapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/java/util/ServiceLoader.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/java/util/ServiceLoader.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -103,13 +77,15 @@
     </key>
   </component>
   <component name="RunManager">
-    <configuration default="true" type="ArquillianJUnit" factoryName="" nameIsGenerated="true">
+    <configuration default="true" type="ArquillianTestNG" factoryName="" nameIsGenerated="true">
       <option name="arquillianRunConfiguration">
         <value>
           <option name="containerStateName" value="" />
         </value>
       </option>
-      <option name="TEST_OBJECT" value="class" />
+      <option name="TEST_OBJECT" value="CLASS" />
+      <properties />
+      <listeners />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -158,7 +134,8 @@
       <workItem from="1648633754106" duration="10000" />
       <workItem from="1653277225971" duration="4000" />
       <workItem from="1653277238112" duration="432000" />
-      <workItem from="1654395032662" duration="29589000" />
+      <workItem from="1654395032662" duration="29631000" />
+      <workItem from="1655080180414" duration="6796000" />
     </task>
     <task id="LOCAL-00001" summary="添加 rt.jar">
       <created>1647937353069</created>
@@ -167,7 +144,14 @@
       <option name="project" value="LOCAL" />
       <updated>1647937353069</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="阅读 - io">
+      <created>1654650902714</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1654650902714</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -187,7 +171,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="添加 rt.jar" />
-    <option name="LAST_COMMIT_MESSAGE" value="添加 rt.jar" />
+    <MESSAGE value="阅读 - io" />
+    <option name="LAST_COMMIT_MESSAGE" value="阅读 - io" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

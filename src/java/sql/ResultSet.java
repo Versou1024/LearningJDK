@@ -174,6 +174,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      *            called on a closed result set
      */
     boolean next() throws SQLException;
+    // 下一行结果
 
 
     /**
@@ -219,6 +220,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      *            called on a closed result set
      */
     boolean wasNull() throws SQLException;
+    // 报告最后读取的列是否具有 SQL NULL 。请注意，您必须首先对列调用其中一个 getter 方法以尝试读取其值，然后调用方法wasNull以查看读取的值是否为 SQL NULL 。
 
     // Methods for accessing results by column index
 
@@ -855,6 +857,10 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * this method
      */
     String getCursorName() throws SQLException;
+    // 检索此ResultSet对象使用的 SQL 游标的名称。
+    // 在 SQL 中，通过命名的游标检索结果表。可以使用引用游标名称的定位更新/删除语句来更新或删除结果集的当前行。
+    // 为确保游标具有支持更新的适当隔离级别，游标的SELECT语句应采用SELECT FOR UPDATE形式。如果省略FOR UPDATE ，则定位更新可能会失败。
+    // JDBC API 通过提供ResultSet对象使用的 SQL 游标的名称来支持此 SQL 功能。 ResultSet对象的当前行也是此 SQL 游标的当前行
 
     /**
      * Retrieves the  number, types and properties of
@@ -865,6 +871,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      *            called on a closed result set
      */
     ResultSetMetaData getMetaData() throws SQLException;
+    // ❗️❗️❗️
 
     /**
      * <p>Gets the value of the designated column in the current row
@@ -1043,6 +1050,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     boolean isBeforeFirst() throws SQLException;
+    // 检索游标是否在此ResultSet对象的第一行之前。
 
     /**
      * Retrieves whether the cursor is after the last row in
@@ -1062,6 +1070,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     boolean isAfterLast() throws SQLException;
+    // 检索游标是否在此ResultSet对象中的最后一行之后。
 
     /**
      * Retrieves whether the cursor is on the first row of
@@ -1080,6 +1089,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     boolean isFirst() throws SQLException;
+    // 光标是否位于此ResultSet对象的第一行。
 
     /**
      * Retrieves whether the cursor is on the last row of
@@ -1101,6 +1111,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     boolean isLast() throws SQLException;
+    // 检索光标是否位于此ResultSet对象的最后一行。
 
     /**
      * Moves the cursor to the front of
@@ -1115,6 +1126,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     void beforeFirst() throws SQLException;
+    // 将光标移动到此ResultSet对象的前面，就在第一行之前
 
     /**
      * Moves the cursor to the end of
@@ -1128,6 +1140,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     void afterLast() throws SQLException;
+    // 将光标移动到此ResultSet对象的末尾，就在最后一行之后。如果结果集不包含行，则此方法无效。
 
     /**
      * Moves the cursor to the first row in
@@ -1143,6 +1156,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     boolean first() throws SQLException;
+    // 将光标移动到此ResultSet对象的第一行。
 
     /**
      * Moves the cursor to the last row in
@@ -1158,6 +1172,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     boolean last() throws SQLException;
+    // 将光标移动到此ResultSet对象的最后一行
 
     /**
      * Retrieves the current row number.  The first row is number 1, the
@@ -1175,6 +1190,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     int getRow() throws SQLException;
+    // 检索当前行号。
 
     /**
      * Moves the cursor to the given row number in
@@ -1220,6 +1236,11 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     boolean absolute( int row ) throws SQLException;
+    // 将光标移动到此ResultSet对象中的给定行号。
+    //  v如果行号为正，则游标移动到相对于结果集开头的给定行号。第一行是第 1 行，第二行是第 2 行，以此类推。
+    // 如果给定的行号为负数，则光标将移动到相对于结果集末尾的绝对行位置。例如，调用方法absolute(-1)将光标定位在最后一行；调用方法absolute(-2)将光标移动到倒数第二行，依此类推。
+    // 如果指定的行号为零，则光标移动到第一行之前。
+    // 尝试将游标定位到结果集中的第一行/最后一行之外，会使游标在第一行之前或最后一行之后。
 
     /**
      * Moves the cursor a relative number of rows, either positive or negative.
@@ -1271,6 +1292,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     boolean previous() throws SQLException;
+    // 将光标移动到此ResultSet对象中的上一行
 
     //---------------------------------------------------------------------
     // Properties
@@ -1283,7 +1305,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * as a hint to the driver, which the driver may ignore.
      * @since 1.2
      */
-    int FETCH_FORWARD = 1000;
+    int FETCH_FORWARD = 1000; // 结果集中的行将按正向处理的常量
 
     /**
      * The constant indicating that the rows in a result set will be
@@ -1292,7 +1314,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * as a hint to the driver, which the driver may ignore.
      * @since 1.2
      */
-    int FETCH_REVERSE = 1001;
+    int FETCH_REVERSE = 1001; // 指示结果集中的行将以相反方向处理的常量
 
     /**
      * The constant indicating that the order in which rows in a
@@ -1300,7 +1322,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * This constant is used by the method <code>setFetchDirection</code>
      * as a hint to the driver, which the driver may ignore.
      */
-    int FETCH_UNKNOWN = 1002;
+    int FETCH_UNKNOWN = 1002; // 指示结果集中的行将被处理的顺序的常量是未知的
 
     /**
      * Gives a hint as to the direction in which the rows in this
@@ -1323,6 +1345,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @see #getFetchDirection
      */
     void setFetchDirection(int direction) throws SQLException;
+    // 行处理的方向
 
     /**
      * Retrieves the fetch direction for this
@@ -1354,6 +1377,9 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @see #getFetchSize
      */
     void setFetchSize(int rows) throws SQLException;
+    // 此ResultSet对象需要更多行时，向 JDBC 驱动程序提供有关应从数据库中获取的行数的提示。
+    // 如果指定的 fetch size 为零，则 JDBC 驱动程序会忽略该值，并可以自由地对 fetch size 的大小做出自己的最佳猜测。
+    // 默认值由创建结果集的Statement对象设置。提取大小可以随时更改。
 
     /**
      * Retrieves the fetch size for this
@@ -1372,7 +1398,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * whose cursor may move only forward.
      * @since 1.2
      */
-    int TYPE_FORWARD_ONLY = 1003;
+    int TYPE_FORWARD_ONLY = 1003; // 指示光标只能向前移动的ResultSet对象的类型的常量
 
     /**
      * The constant indicating the type for a <code>ResultSet</code> object
@@ -1380,7 +1406,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * that underlies the <code>ResultSet</code>.
      * @since 1.2
      */
-    int TYPE_SCROLL_INSENSITIVE = 1004;
+    int TYPE_SCROLL_INSENSITIVE = 1004; // 该常量指示ResultSet对象的类型，该对象可滚动，但通常对ResultSet基础数据的更改不敏感。
 
     /**
      * The constant indicating the type for a <code>ResultSet</code> object
@@ -1388,7 +1414,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * that underlies the <code>ResultSet</code>.
      * @since 1.2
      */
-    int TYPE_SCROLL_SENSITIVE = 1005;
+    int TYPE_SCROLL_SENSITIVE = 1005; // 该常量指示ResultSet对象的类型，该对象是可滚动的，并且通常对ResultSet基础数据的更改敏感。
 
     /**
      * Retrieves the type of this <code>ResultSet</code> object.
@@ -1403,20 +1429,21 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     int getType() throws SQLException;
+    // 检索此ResultSet对象的类型。类型由创建结果集的Statement对象确定。
 
     /**
      * The constant indicating the concurrency mode for a
      * <code>ResultSet</code> object that may NOT be updated.
      * @since 1.2
      */
-    int CONCUR_READ_ONLY = 1007;
+    int CONCUR_READ_ONLY = 1007; // 不会更新的ResultSet对象的并发模式的常量。
 
     /**
      * The constant indicating the concurrency mode for a
      * <code>ResultSet</code> object that may be updated.
      * @since 1.2
      */
-    int CONCUR_UPDATABLE = 1008;
+    int CONCUR_UPDATABLE = 1008; // 可能更新的ResultSet对象的并发模式的常量。
 
     /**
      * Retrieves the concurrency mode of this <code>ResultSet</code> object.
@@ -1431,6 +1458,7 @@ public interface ResultSet extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     int getConcurrency() throws SQLException;
+    // 检索此ResultSet对象的并发模式
 
     //---------------------------------------------------------------------
     // Updates

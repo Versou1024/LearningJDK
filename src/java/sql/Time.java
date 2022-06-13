@@ -69,6 +69,7 @@ public class Time extends java.util.Date {
      *               January 1, 1970, 00:00:00 GMT
      */
     public Time(long time) {
+        // 使用毫秒时间值构造一个Time对象。
         super(time);
     }
 
@@ -98,13 +99,13 @@ public class Time extends java.util.Date {
 
         if (s == null) throw new java.lang.IllegalArgumentException();
 
+        // 按照 hh:mm:ss 分割出来 hour\minute\second
         firstColon = s.indexOf(':');
         secondColon = s.indexOf(':', firstColon+1);
         if ((firstColon > 0) & (secondColon > 0) &
             (secondColon < s.length()-1)) {
             hour = Integer.parseInt(s.substring(0, firstColon));
-            minute =
-                Integer.parseInt(s.substring(firstColon+1, secondColon));
+            minute = Integer.parseInt(s.substring(firstColon+1, secondColon));
             second = Integer.parseInt(s.substring(secondColon+1));
         } else {
             throw new java.lang.IllegalArgumentException();

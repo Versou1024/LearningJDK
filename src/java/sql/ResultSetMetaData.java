@@ -44,6 +44,29 @@ package java.sql;
 
 public interface ResultSetMetaData extends Wrapper {
 
+    // 结果集的元数据包括
+    //  getColumnCount():int            结果的列数
+    //  isAutolncrement(int):boolean    指定列是否自动增长
+    //  isCaseSensitive(int):boolean    指示列的大小写是否重要
+    //  isSearchable(int):boolean       指示指定列是否可以在 where 子句中使用
+    //  isCurrency(int):boolean         指示指定列是否为现金值。
+    //  isNullable(int):int             指定列是否可为null
+    //  isSigned(int):boolean           指示指定列中的值是否为有符号数
+    //  getColumnDisplaySize(int):int   指定列的展示长度
+    //  getColumnLabel(int):String      获取指定列的建议标题以用于打印输出和显示。建议的标题通常由 SQL AS子句指定。如果未指定 SQL AS ，则getColumnLabel返回的值将与getColumnName方法返回的值相同。
+    //  getColumnName(int):String
+    //  getSchema Name(int):String
+    //  getPrecision(int):int
+    //  getScale(int):int
+    //  getTableName(int):String
+    //  getCatalogName(int):String
+    //  getColumnType(int):int
+    //  getColumnTypeName(int):String
+    //  isReadOnly(int):boolean
+    //  isWritable(int):boolean
+    //  isDefinitelyWritable(int):boolean
+    //  getColumnClassName(int):String
+
     /**
      * Returns the number of columns in this <code>ResultSet</code> object.
      *
@@ -102,19 +125,19 @@ public interface ResultSetMetaData extends Wrapper {
      * The constant indicating that a
      * column does not allow <code>NULL</code> values.
      */
-    int columnNoNulls = 0;
+    int columnNoNulls = 0; // 不可为null
 
     /**
      * The constant indicating that a
      * column allows <code>NULL</code> values.
      */
-    int columnNullable = 1;
+    int columnNullable = 1; // 可为 null
 
     /**
      * The constant indicating that the
      * nullability of a column's values is unknown.
      */
-    int columnNullableUnknown = 2;
+    int columnNullableUnknown = 2; // 位置
 
     /**
      * Indicates whether values in the designated column are signed numbers.
@@ -134,6 +157,7 @@ public interface ResultSetMetaData extends Wrapper {
      * @exception SQLException if a database access error occurs
      */
     int getColumnDisplaySize(int column) throws SQLException;
+    //指示指定列的正常最大字符宽度
 
     /**
      * Gets the designated column's suggested title for use in printouts and
@@ -147,6 +171,7 @@ public interface ResultSetMetaData extends Wrapper {
      * @exception SQLException if a database access error occurs
      */
     String getColumnLabel(int column) throws SQLException;
+    // 获取指定列的建议标题以用于打印输出和显示。建议的标题通常由 SQL AS子句指定。如果未指定 SQL AS ，则getColumnLabel返回的值将与getColumnName方法返回的值相同。
 
     /**
      * Get the designated column's name.
@@ -156,6 +181,7 @@ public interface ResultSetMetaData extends Wrapper {
      * @exception SQLException if a database access error occurs
      */
     String getColumnName(int column) throws SQLException;
+    // 获取指定列的名称
 
     /**
      * Get the designated column's table's schema.
@@ -165,6 +191,7 @@ public interface ResultSetMetaData extends Wrapper {
      * @exception SQLException if a database access error occurs
      */
     String getSchemaName(int column) throws SQLException;
+    // 获取指定列的表的架构
 
     /**
      * Get the designated column's specified column size.
@@ -179,6 +206,13 @@ public interface ResultSetMetaData extends Wrapper {
      * @exception SQLException if a database access error occurs
      */
     int getPrecision(int column) throws SQLException;
+    // 获取指定列的指定列大小。
+    // 对于数值数据，这是最大精度。
+    // 对于字符数据，这是字符长度。
+    // 对于日期时间数据类型，这是字符串表示的字符长度（假设小数秒组件的最大允许精度）。
+    // 对于二进制数据，这是以字节为单位的长度。
+    // 对于 ROWID 数据类型，这是以字节为单位的长度。
+    // 对于列大小不适用的数据类型，返回 0。
 
     /**
      * Gets the designated column's number of digits to right of the decimal point.
@@ -189,6 +223,7 @@ public interface ResultSetMetaData extends Wrapper {
      * @exception SQLException if a database access error occurs
      */
     int getScale(int column) throws SQLException;
+    // 获取指定列的小数点右侧的位数。对于比例不适用的数据类型，返回 0
 
     /**
      * Gets the designated column's table name.
@@ -198,6 +233,7 @@ public interface ResultSetMetaData extends Wrapper {
      * @exception SQLException if a database access error occurs
      */
     String getTableName(int column) throws SQLException;
+    // 获取指定列的表名。
 
     /**
      * Gets the designated column's table's catalog name.
@@ -208,6 +244,7 @@ public interface ResultSetMetaData extends Wrapper {
      * @exception SQLException if a database access error occurs
      */
     String getCatalogName(int column) throws SQLException;
+    // 获取指定列的表的目录名称。
 
     /**
      * Retrieves the designated column's SQL type.
@@ -218,6 +255,7 @@ public interface ResultSetMetaData extends Wrapper {
      * @see Types
      */
     int getColumnType(int column) throws SQLException;
+    // 检索指定列的 SQL 类型
 
     /**
      * Retrieves the designated column's database-specific type name.
@@ -228,6 +266,7 @@ public interface ResultSetMetaData extends Wrapper {
      * @exception SQLException if a database access error occurs
      */
     String getColumnTypeName(int column) throws SQLException;
+    // 检索指定列的数据库特定类型名称。
 
     /**
      * Indicates whether the designated column is definitely not writable.

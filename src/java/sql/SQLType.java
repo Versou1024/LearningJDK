@@ -32,12 +32,14 @@ package java.sql;
  */
 public interface SQLType {
 
+    // SQL 的类型至少提供两个参数  name/vendor
+
     /**
      * Returns the {@code SQLType} name that represents a SQL data type.
      *
      * @return The name of this {@code SQLType}.
      */
-    String getName();
+    String getName(); //  SQL 数据类型的SQLType名称。
 
     /**
      * Returns the name of the vendor that supports this data type. The value
@@ -45,7 +47,7 @@ public interface SQLType {
      *
      * @return The name of the vendor for this data type
      */
-    String getVendor();
+    String getVendor(); // 支持此数据类型的供应商名称
 
     /**
      * Returns the vendor specific type number for the data type.

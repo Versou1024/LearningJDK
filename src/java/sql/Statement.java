@@ -63,6 +63,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * the currently running {@code Statement}
      */
     ResultSet executeQuery(String sql) throws SQLException;
+    // 执行给定的 SQL 语句，该语句返回单个ResultSet对象
 
     /**
      * Executes the given SQL statement, which may be an <code>INSERT</code>,
@@ -88,6 +89,8 @@ public interface Statement extends Wrapper, AutoCloseable {
      * the currently running {@code Statement}
      */
     int executeUpdate(String sql) throws SQLException;
+    // 执行给定的 SQL 语句，可能是INSERT 、 UPDATE或DELETE语句或不返回任何内容的 SQL 语句，例如 SQL DDL 语句。
+    // 注意：不能在PreparedStatement或CallableStatement上调用此方法
 
     /**
      * Releases this <code>Statement</code> object's database
@@ -107,6 +110,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @exception SQLException if a database access error occurs
      */
     void close() throws SQLException;
+    // 立即释放此Statement对象的数据库和 JDBC 资源，而不是等待它自动关闭时发生。通常最好在使用完资源后立即释放资源，以避免占用数据库资源。
 
     //----------------------------------------------------------------------
 
@@ -127,6 +131,8 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @see #setMaxFieldSize
      */
     int getMaxFieldSize() throws SQLException;
+    // 检索可以为此Statement对象生成的ResultSet对象中的字符和二进制列值返回的最大字节数
+    // 限制仅适用于BINARY 、 VARBINARY 、 LONGVARBINARY 、 CHAR 、 VARCHAR 、 NCHAR 、 NVARCHAR 、 LONGNVARCHAR和LONGVARCHAR列。如果超出限制，多余的数据将被静默丢弃。
 
     /**
      * Sets the limit for the maximum number of bytes that can be returned for
@@ -163,6 +169,8 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @see #setMaxRows
      */
     int getMaxRows() throws SQLException;
+    // 检索由此Statement对象生成的ResultSet对象可以包含的最大行数
+    // 即返回的结果集最多有多少行
 
     /**
      * Sets the limit for the maximum number of rows that any
@@ -202,6 +210,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * this method is called on a closed <code>Statement</code>
      */
     void setEscapeProcessing(boolean enable) throws SQLException;
+    // 设置转义处理打开或关闭。如果转义扫描打开（默认），驱动程序将在将 SQL 语句发送到数据库之前进行转义替换。
 
     /**
      * Retrieves the number of seconds the driver will
@@ -216,6 +225,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @see #setQueryTimeout
      */
     int getQueryTimeout() throws SQLException;
+    // 查询超时时间
 
     /**
      * Sets the number of seconds the driver will wait for a
@@ -257,6 +267,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * this method
      */
     void cancel() throws SQLException;
+    // 如果 DBMS 和驱动程序都支持中止 SQL 语句，则取消此Statement对象。一个线程可以使用此方法取消另一个线程正在执行的语句。
 
     /**
      * Retrieves the first warning reported by calls on this <code>Statement</code> object.
@@ -279,6 +290,8 @@ public interface Statement extends Wrapper, AutoCloseable {
      * this method is called on a closed <code>Statement</code>
      */
     SQLWarning getWarnings() throws SQLException;
+    // 检索对此Statement对象的调用报告的第一个警告。随后的Statement对象警告将链接到此SQLWarning对象。
+
 
     /**
      * Clears all the warnings reported on this <code>Statement</code>
@@ -352,6 +365,10 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @see #getMoreResults
      */
     boolean execute(String sql) throws SQLException;
+    // 执行给定的 SQL 语句，该语句可能返回多个结果。在某些（不常见的）情况下，单个 SQL 语句可能会返回多个结果集和/或更新计数。通常您可以忽略这一点，
+    // 除非您 (1) 执行一个您知道可能返回多个结果的存储过程，或者 (2) 您正在动态执行一个未知的 SQL 字符串。
+    // execute方法执行一条 SQL 语句并指示第一个结果的形式。然后，
+    // 您必须使用方法getResultSet或getUpdateCount检索结果，并使用getMoreResults移动到任何后续结果。
 
     /**
      *  Retrieves the current result as a <code>ResultSet</code> object.
@@ -424,6 +441,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @see #getFetchDirection
      */
     void setFetchDirection(int direction) throws SQLException;
+    // 在使用此Statement对象创建的ResultSet对象中处理行的方向的提示。默认值为ResultSet.FETCH_FORWARD 。
 
     /**
      * Retrieves the direction for fetching rows from
@@ -457,6 +475,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @see #getFetchSize
      */
     void setFetchSize(int rows) throws SQLException;
+    // 当此Statement生成的ResultSet对象需要更多行时，向 JDBC 驱动程序提供有关应从数据库中获取的行数的提示。如果指定的值为零，则忽略提示。默认值为零。
 
     /**
      * Retrieves the number of result set rows that is the default
@@ -486,6 +505,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     int getResultSetConcurrency() throws SQLException;
+    // 检索由此Statement对象生成的ResultSet对象的结果集并发性。
 
     /**
      * Retrieves the result set type for <code>ResultSet</code> objects
@@ -499,6 +519,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     int getResultSetType()  throws SQLException;
+    // 检索由此Statement对象生成的ResultSet对象的结果集类型。
 
     /**
      * Adds the given SQL command to the current list of commands for this
@@ -518,6 +539,8 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     void addBatch( String sql ) throws SQLException;
+    // 将给定的 SQL 命令添加到此Statement对象的当前命令列表中。
+    // 此列表中的命令可以通过调用executeBatch方法作为批处理执行
 
     /**
      * Empties this <code>Statement</code> object's current list of
@@ -588,6 +611,11 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @since 1.2
      */
     int[] executeBatch() throws SQLException;
+    // 向数据库提交一批命令执行，如果所有命令执行成功，则返回一个更新计数数组。返回的数组的int元素按照批处理中的命令进行排序，这些命令根据添加到批处理中的顺序进行排序。 executeBatch方法返回的数组中的元素可能是以下之一：
+    //大于或等于零的数字 - 表示命令已成功处理，并且是一个更新计数，给出了数据库中受命令执行影响的行数
+    //值SUCCESS_NO_INFO -- 表示命令已成功处理，但受影响的行数未知
+    //如果批量更新中的某个命令未能正确执行，则此方法会抛出BatchUpdateException ，并且 JDBC 驱动程序可能会或可能不会继续处理批处理中的剩余命令。但是，驱动程序的行为必须与特定的 DBMS 一致，要么总是继续处理命令，要么从不继续处理命令。如果驱动程序在失败后继续处理，则BatchUpdateException.getUpdateCounts方法返回的数组将包含与批处理中的命令一样多的元素，并且至少有一个元素如下：
+    //EXECUTE_FAILED的值——表示命令未能成功执行，并且仅在命令失败后驱动程序继续处理命令时才会发生
 
     /**
      * Retrieves the <code>Connection</code> object
@@ -608,6 +636,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @since 1.4
      */
     int CLOSE_CURRENT_RESULT = 1;
+    // 指示调用getMoreResults时应关闭当前ResultSet对象的常量。
 
     /**
      * The constant indicating that the current <code>ResultSet</code> object
@@ -616,6 +645,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @since 1.4
      */
     int KEEP_CURRENT_RESULT = 2;
+    // 表示调用getMoreResults时不应关闭当前ResultSet对象的常量。
 
     /**
      * The constant indicating that all <code>ResultSet</code> objects that
@@ -625,6 +655,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @since 1.4
      */
     int CLOSE_ALL_RESULTS = 3;
+    // 指示在调用getMoreResults时应关闭以前保持打开的所有ResultSet对象。
 
     /**
      * The constant indicating that a batch statement executed successfully
@@ -633,6 +664,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @since 1.4
      */
     int SUCCESS_NO_INFO = -2;
+    // 指示批处理语句成功执行但它影响的行数的计数不可用的常量
 
     /**
      * The constant indicating that an error occurred while executing a
@@ -640,7 +672,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      *
      * @since 1.4
      */
-    int EXECUTE_FAILED = -3;
+    int EXECUTE_FAILED = -3; // 指示执行批处理语句时发生错误的常量。
 
     /**
      * The constant indicating that generated keys should be made
@@ -648,7 +680,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      *
      * @since 1.4
      */
-    int RETURN_GENERATED_KEYS = 1;
+    int RETURN_GENERATED_KEYS = 1; // 指示生成的密钥应该可用于检索的常量。
 
     /**
      * The constant indicating that generated keys should not be made
@@ -656,7 +688,7 @@ public interface Statement extends Wrapper, AutoCloseable {
      *
      * @since 1.4
      */
-    int NO_GENERATED_KEYS = 2;
+    int NO_GENERATED_KEYS = 2; // 指示不应使生成的密钥可用于检索的常量
 
     /**
      * Moves to this <code>Statement</code> object's next result, deals with
@@ -1194,6 +1226,14 @@ public interface Statement extends Wrapper, AutoCloseable {
      * @since 1.8
      */
     default long[] executeLargeBatch() throws SQLException {
+        // 执行批量语句
+        // 向数据库提交一批命令执行，如果所有命令执行成功，则返回一个更新计数数组。返回的数组的long元素按照批处理中的命令进行排序，这些命令根据它们添加到批处理中的顺序进行排序。 executeLargeBatch方法返回的数组中的元素可能是以下之一：
+        //      1. 大于或等于零的数字 - 表示命令已成功处理，并且是一个更新计数，给出了数据库中受命令执行影响的行数
+        //      2. 值SUCCESS_NO_INFO -- 表示命令已成功处理，但受影响的行数未知
+        //      3. EXECUTE_FAILED的值——表示命令未能成功执行，并且仅在命令失败后驱动程序继续处理命令时才会发生
+
+        // 可以搭配 addBatch()/ DatabaseMetaData.supportsBatchUpdates
+        // 相比于 executeBatch() 批量的size表达
         throw new UnsupportedOperationException("executeLargeBatch not implemented");
     }
 

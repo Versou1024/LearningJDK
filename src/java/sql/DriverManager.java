@@ -80,40 +80,6 @@ import sun.reflect.Reflection;
  */
 public class DriverManager {
 
-    // 围绕DriverManager与ServiceLoader讲解线程上下文类加载的机制
-    // 应用程序的代码：Class.forName("com.mysql.cj.Driver");
-    // 触发其静态代码块：
-    //     static {
-    //        try {
-    //            java.sql.DriverManager.registerDriver(new Driver()); // DriverManager的加载，系统类加载器将作为初始化加载器，由于双亲委托机制启动类加载器作为其定义加载器
-    //        } catch (SQLException E) {
-    //            throw new RuntimeException("Can't register driver!");
-    //        }
-    //    }
-    // 进而触发DriverManager类中的的静态代码块[这个时候DriverManager中的类理应由启动类加载器进行真实加载的]
-    // static {
-    //        loadInitialDrivers(); // 静态代码块初始化
-    //        println("JDBC DriverManager initialized");
-    //    }
-    // 进而触发loadInitialDrivers静态方法【注：伪代码复制核心代码】
-    // private static void loadInitialDrivers() {
-    //        String drivers = System.getProperty("jdbc.drivers");
-    //        ServiceLoader<Driver> loadedDrivers = ServiceLoader.load(Driver.class); // 由启动类加载器触发ServiceLoader的加载
-    //        Iterator<Driver> driversIterator = loadedDrivers.iterator();
-    //        while(driversIterator.hasNext()) { // 实际上间接在ServiceLoader中通过提前初始化获取的线程上下文类加载将Class对象加载到内存上
-    //            driversIterator.next(); // 延迟定位和延迟加载，这一步主要是将数据库厂商提供的jar包中的Class对象加载到内存中，否则后续的Class.forName将直接报错找不到Class对象
-    //        }
-    //        if (drivers == null || drivers.equals("")) {
-    //            return;
-    //        }
-    //        // 可以看到后续实际上，driversIterator没有被使用，因为起作用就是为了将数据库提供商的Class对象加载到内存，避免接下来的步骤报出异常
-    //        String[] driversList = drivers.split(":");
-    //        for (String aDriver : driversList) {
-    //            Class.forName(aDriver, true, ClassLoader.getSystemClassLoader());
-    //        }
-    //    }
-
-
 
     // List of registered JDBC drivers
     private final static CopyOnWriteArrayList<DriverInfo> registeredDrivers = new CopyOnWriteArrayList<>();
@@ -132,7 +98,14 @@ public class DriverManager {
      * jdbc.properties and then use the {@code ServiceLoader} mechanism
      */
     static {
-        loadInitialDrivers(); // 静态代码块初始化
+        // 静态代码块初始化 -- 由实际上启动类加载器加载
+        // 需要清除一件事:
+        // DriverManager.class.getClassLoader() 返回null,表示加载DriverManager的是启动类类加载器
+        // Thread.currentThread().getContextClassLoader() 返回AppClassLoader即系统类加载器或自定义类加载器
+        // 一般情况,一个类引用另一个类的时候将通过 forName(String className) 去加载引用的类,但是这里的DriverManager的定义类加载器是为启动类加载器
+        // 启动类加载器是无法加载到 rt.jar 包以外的类,此刻需要使用 Thread.currentThread().getContextClassLoader() 获取系统类加载器
+        // 然后通过指定ClassLoader的 forName(String name, boolean initialize, ClassLoader loader) 完成类的加载动作
+        loadInitialDrivers();
         println("JDBC DriverManager initialized");
     }
 
@@ -269,6 +242,7 @@ public class DriverManager {
     @CallerSensitive
     public static Connection getConnection(String url,
         String user, String password) throws SQLException {
+        // 可以将user和password存入info中供后续实际获取连接时使用
         java.util.Properties info = new java.util.Properties();
 
         if (user != null) {
@@ -364,7 +338,11 @@ public class DriverManager {
      */
     public static synchronized void registerDriver(java.sql.Driver driver)
         throws SQLException {
+        // ❗️❗️❗️
+        // 这个时候 Driver 的实现类已经被加载内存中,所以DriverManager可以查找到driver
 
+        // 100%的情况都需要进行注册的Driver到DriverManager中
+        // 很简单的操作 -- 就是将 driver 放入到 registeredDrivers
         registerDriver(driver, null);
     }
 
@@ -383,8 +361,7 @@ public class DriverManager {
      * @exception NullPointerException if {@code driver} is null
      * @since 1.8
      */
-    public static synchronized void registerDriver(java.sql.Driver driver,
-            DriverAction da)
+    public static synchronized void registerDriver(java.sql.Driver driver, DriverAction da)
         throws SQLException {
 
         /* Register the driver if it has not already been added to our list */
@@ -424,7 +401,7 @@ public class DriverManager {
      *
      * @see SecurityManager#checkPermission
      */
-    @CallerSensitive
+    // @CallerSensitive
     public static synchronized void deregisterDriver(Driver driver)
         throws SQLException {
         if (driver == null) {
@@ -469,6 +446,8 @@ public class DriverManager {
      */
     @CallerSensitive
     public static java.util.Enumeration<Driver> getDrivers() {
+        // 获取调用者的ClassLoader可以加载Driver的集合
+
         java.util.Vector<Driver> result = new java.util.Vector<>();
 
         Class<?> callerClass = Reflection.getCallerClass();
@@ -496,6 +475,7 @@ public class DriverManager {
      * @see #getLoginTimeout
      */
     public static void setLoginTimeout(int seconds) {
+        // 设置识别驱动程序后尝试连接数据库时驱动程序将等待的最长时间
         loginTimeout = seconds;
     }
 
@@ -587,6 +567,7 @@ public class DriverManager {
         if(driver != null) {
             Class<?> aClass = null;
             try {
+                // 获取指定的Class,通过Class.forName()完成
                 aClass =  Class.forName(driver.getClass().getName(), true, classLoader);
             } catch (Exception ex) {
                 result = false;
@@ -617,7 +598,9 @@ public class DriverManager {
         AccessController.doPrivileged(new PrivilegedAction<Void>() {
             public Void run() {
 
+                // 泛型 Driver 表示正在加载的类
                 ServiceLoader<Driver> loadedDrivers = ServiceLoader.load(Driver.class);
+                // 获取 Driver 的迭代器 -- 注意此刻并没有将Driver加载到内存 -- 因为是延迟加载哦
                 Iterator<Driver> driversIterator = loadedDrivers.iterator();
 
                 /* Load these drivers, so that they can be instantiated.
@@ -633,6 +616,8 @@ public class DriverManager {
                  * packaged as service and that service is there in classpath.
                  */
                 try{
+                    // 由于延迟加载的问题,我们必须手动使用 driversIterator.next 启动Driver的实现类加载到内存中
+                    // 否则就会出现bug
                     while(driversIterator.hasNext()) {
                         driversIterator.next();
                     }
@@ -646,6 +631,7 @@ public class DriverManager {
         println("DriverManager.initialize: jdbc.drivers = " + drivers);
 
         if (drivers == null || drivers.equals("")) {
+            // 99%的情况,由于drivers为null,直接返回
             return;
         }
         String[] driversList = drivers.split(":");
@@ -700,14 +686,10 @@ public class DriverManager {
     //    }
 
     //  Worker method called by the public getConnection() methods.
-    private static Connection getConnection(
-        String url, java.util.Properties info, Class<?> caller) throws SQLException {
-        /*
-         * When callerCl is null, we should check the application's
-         * (which is invoking this class indirectly)
-         * classloader, so that the JDBC driver class outside rt.jar
-         * can be loaded from here.
-         */
+    private static Connection getConnection(String url, java.util.Properties info, Class<?> caller) throws SQLException {
+        // 获取连接的最终位置
+
+        // 当 callerCl 为 null 时，我们应该检查应用程序（它间接调用这个类）的类加载器，以便可以从这里加载 rt.jar 之外的 JDBC 驱动程序类。
         ClassLoader callerCL = caller != null ? caller.getClassLoader() : null;
         synchronized(DriverManager.class) {
             // synchronize loading of the correct classloader.
@@ -722,19 +704,17 @@ public class DriverManager {
 
         println("DriverManager.getConnection(\"" + url + "\")");
 
-        // Walk through the loaded registeredDrivers attempting to make a connection.
-        // Remember the first exception that gets raised so we can reraise it.
+        // 浏览已加载的已注册驱动程序以尝试建立连接。记住第一个引发的异常，以便我们可以重新引发它。
         SQLException reason = null;
 
         for(DriverInfo aDriver : registeredDrivers) {
-            // If the caller does not have permission to load the driver then
-            // skip it.
+            // 如果调用者的classLoader即callerCL无权加载驱动程序driver时，则跳过它。
             if(isDriverAllowed(aDriver.driver, callerCL)) {
                 try {
                     println("    trying " + aDriver.driver.getClass().getName());
                     Connection con = aDriver.driver.connect(url, info);
                     if (con != null) {
-                        // Success!
+                        // 成功获取连接 -- 即返回null时,当前遍历的driver就是不支持这种连接的
                         println("getConnection returning " + aDriver.driver.getClass().getName());
                         return (con);
                     }
@@ -751,6 +731,7 @@ public class DriverManager {
         }
 
         // if we got here nobody could connect.
+        // 如果运行到了这里，没有人可以连接 -- 抛出异常吧
         if (reason != null)    {
             println("getConnection failed: " + reason);
             throw reason;
@@ -770,8 +751,8 @@ public class DriverManager {
  */
 class DriverInfo {
 
-    final Driver driver;
-    DriverAction da;
+    final Driver driver; // 驱动器
+    DriverAction da; // 驱动器行为
     DriverInfo(Driver driver, DriverAction action) {
         this.driver = driver;
         da = action;

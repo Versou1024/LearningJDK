@@ -40,6 +40,7 @@ package java.sql;
 
 public interface Savepoint {
 
+    // 连接点id和连接name
     /**
      * Retrieves the generated ID for the savepoint that this
      * <code>Savepoint</code> object represents.

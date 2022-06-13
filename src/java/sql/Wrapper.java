@@ -40,6 +40,8 @@ package java.sql;
  */
 
 public interface Wrapper {
+    // 许多 JDBC 驱动程序实现都使用包装器模式来提供超越传统 JDBC API 的扩展，这些扩展是特定于数据源的。
+    // 开发人员可能希望访问这些被包装的资源（委托）作为代表实际资源的代理类实例。此接口描述了一种标准机制来访问由其代理表示的这些包装资源，以允许直接访问资源委托。
 
     /**
      * Returns an object that implements the given interface to allow access to

@@ -33,6 +33,8 @@ package java.sql;
  */
 public enum JDBCType implements SQLType {
 
+    // JDBC 的类型枚举
+
     /**
      * Identifies the generic SQL type {@code BIT}.
      */

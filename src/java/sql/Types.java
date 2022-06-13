@@ -32,6 +32,8 @@ package java.sql;
  * This class is never instantiated.
  */
 public class Types {
+    // 定义用于标识通用 SQL 类型的常量的类，称
+    // JDBC 类型
 
 /**
  * <P>The constant in the Java programming language, sometimes referred

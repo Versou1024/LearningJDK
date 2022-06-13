@@ -59,6 +59,7 @@ import java.io.InputStream;
  */
 
 public interface PreparedStatement extends Statement {
+    // 继承自 Statement
 
     /**
      * Executes the SQL query in this <code>PreparedStatement</code> object

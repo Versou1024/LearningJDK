@@ -613,7 +613,7 @@ public final class ServiceLoader<S>
      * @return A new service loader
      */
     public static <S> ServiceLoader<S> load(Class<S> service) {
-        ClassLoader cl = Thread.currentThread().getContextClassLoader(); // 获取线程上下文类加载器
+        ClassLoader cl = Thread.currentThread().getContextClassLoader(); // 获取线程上下文类加载器 -- 这个ClassLoader一般就是启动类ClassLoader哦
         return ServiceLoader.load(service, cl); //
     }
 

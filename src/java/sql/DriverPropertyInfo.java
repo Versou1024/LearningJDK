@@ -34,6 +34,7 @@ package java.sql;
  */
 
 public class DriverPropertyInfo {
+    // 建立连接的驱动程序属性
 
     /**
      * Constructs a <code>DriverPropertyInfo</code> object with a  given
